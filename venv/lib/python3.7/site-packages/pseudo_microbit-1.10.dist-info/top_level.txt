@@ -1,0 +1,12 @@
+compass
+display
+i2c
+microbit
+micropython
+music
+neopixel
+os
+radio
+speech
+spi
+uart

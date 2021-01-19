@@ -1,0 +1,37 @@
+Metadata-Version: 2.1
+Name: pseudo-microbit
+Version: 1.10
+Summary: API to be used with PyCharm for micro:bit python development
+Home-page: https://github.com/MrYsLab/pseudo-microbit
+Author: Alan Yorinks
+Author-email: MisterYsLab@gmail.com
+License: MIT
+Download-URL: https://github.com/MrYsLab/pseudo-microbit
+Keywords: micro:bit,microbit,micropython
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Other Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Topic :: Software Development
+Description-Content-Type: text/markdown
+Requires-Dist: microfs
+Requires-Dist: pyminifier
+Requires-Dist: uflash
+
+![logo](https://raw.github.com/MrYsLab/pseudo-microbit/master/docs/images/logo.png)
+
+# pseudo-microbit
+
+A _pseudo_ implementation of the micro:bit micropython API. used in conjunction
+with tools such as PyCharm.
+
+Integrated the typehints from https://github.com/vlasovskikh/intellij-micropython
+
+A full tutorial may be found here: https://mryslab.github.io/pseudo-microbit/
+
+
+
