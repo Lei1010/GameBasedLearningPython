@@ -1,3 +1,3 @@
-from microbit import * 
+from microbit import *
 while True:
- display.show(Image.HEART)
+ display.show(Image.ASLEEP)

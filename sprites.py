@@ -4,7 +4,6 @@ import pygame
 from extracter import extract_images
 import os
 
-
 SCREEN_WIDTH, SCREEN_HEIGHT = int(pygame.display.Info().current_w), int(pygame.display.Info().current_h)
 
 CODE_ITALIC = 'Assets/Fonts/JetBrainsMono-Light-Italic.ttf'
@@ -14,9 +13,11 @@ WHITE = (255, 255, 255)
 GREEN = (117, 147, 97)
 GRAY = (220, 220, 220)
 BLACK = (0, 0, 0)
+RED = 255, 0, 0
 
 PERCENT_OF_SCREEN_HEIGHT = 0.1296296296296296
 scale_factor = SCREEN_HEIGHT * PERCENT_OF_SCREEN_HEIGHT / 350
+
 
 
 class Player(pygame.sprite.Sprite):
@@ -50,9 +51,8 @@ class Player(pygame.sprite.Sprite):
         attack_images[0].append(pygame.transform.flip(image, True, False))
         attack_images[1].append(image)
 
-    def __init__(self, canvas):
+    def __init__(self, chapter=1):
         super(Player, self).__init__()
-        self.canvas = canvas
         self.image: pygame.Surface = self.idle_images[1][0]
         self.rect: pygame.Rect = self.image.get_rect(center=(0, 350))
         self.rect.left = 0.05 * SCREEN_WIDTH
@@ -165,29 +165,30 @@ def get_image(images: list, index: int = None) -> pygame.image:
 
 
 class Enemy(pygame.sprite.Sprite):
-    enemy1_idle_path = "assets/sprites/enemy_1/idle/*.png"
-    enemy1_hurt_path = "assets/sprites/enemy_1/hurt/*.png"
-    enemy1_dying_path = "assets/sprites/enemy_1/dying/*png"
+    idle_path = "assets/sprites/enemy{}/idle/*.png"
+    hurting_path = "assets/sprites/enemy/hurting/*.png"
+    dying_path = "assets/sprites/enemy/dying/*png"
 
     change_animation = 2
     idle_index = 1
     animation_frame = 'idle'
 
-    enemy1_idle_images = []
-    for image in extract_images(enemy1_idle_path, scale_factor * 1.5):
-        enemy1_idle_images.append(pygame.transform.flip(image, True, False))
+    idle_images = []
+    for image in extract_images(idle_path, scale_factor * 1.5):
+        idle_images.append(pygame.transform.flip(image, True, False))
 
-    enemy1_hurt_images = []
-    for image in extract_images(enemy1_hurt_path, scale_factor * 1.5):
-        enemy1_hurt_images.append(pygame.transform.flip(image, True, False))
+    hurting_images = []
+    for image in extract_images(hurting_path, scale_factor * 1.5):
+        hurting_images.append(pygame.transform.flip(image, True, False))
 
-    enemy1_dying_images = []
-    for image in extract_images(enemy1_dying_path, scale_factor * 1.5):
-        enemy1_dying_images.append(pygame.transform.flip(image, True, False))
+    dying_images = []
+    for image in extract_images(dying_path, scale_factor * 1.5):
+        dying_images.append(pygame.transform.flip(image, True, False))
 
-    def __init__(self):
+    def __init__(self, chapter=1):
         super(Enemy, self).__init__()
-        self.image: pygame.Surface = self.enemy1_idle_images[0]
+        self.chapter = chapter
+        self.image: pygame.Surface = self.idle_images[0]
         self.rect: pygame.Rect = self.image.get_rect(center=(0, 350))
         self.rect.left = 0.5 * SCREEN_WIDTH
         self.count_hit = 0
@@ -198,9 +199,9 @@ class Enemy(pygame.sprite.Sprite):
 
     def update_idle(self):
         if self.change_animation <= 0:
-            self.image = get_image(self.enemy1_idle_images, self.idle_index)
+            self.image = get_image(self.idle_images, self.idle_index)
             self.idle_index += 2
-            if self.idle_index >= len(self.enemy1_idle_images):
+            if self.idle_index >= len(self.idle_images):
                 self.idle_index = 0
             self.change_animation = 2
         else:
@@ -208,9 +209,9 @@ class Enemy(pygame.sprite.Sprite):
 
     def update_hurt(self):
         if self.change_animation <= 0:
-            self.image = get_image(self.enemy1_hurt_images, self.idle_index)
+            self.image = get_image(self.hurting_images, self.idle_index)
             self.idle_index += 2
-            if self.idle_index >= len(self.enemy1_hurt_images):
+            if self.idle_index >= len(self.hurting_images):
                 self.idle_index = 0
                 self.animation_frame = 'idle'
             self.change_animation = 2
@@ -219,9 +220,9 @@ class Enemy(pygame.sprite.Sprite):
 
     def update_dying(self):
         if self.change_animation <= 0:
-            self.image = get_image(self.enemy1_dying_images, self.idle_index)
+            self.image = get_image(self.dying_images, self.idle_index)
             self.idle_index += 2
-            if self.idle_index >= len(self.enemy1_dying_images):
+            if self.idle_index >= len(self.dying_images):
                 self.idle_index = 0
                 self.killed = True
             self.change_animation = 2
@@ -284,15 +285,15 @@ class Wizard(pygame.sprite.Sprite):
     for image in extract_images(wizard_ice_path, scale_factor * 1.5):
         wizard_fire_images.append(pygame.transform.flip(image, True, False))
 
-    def __init__(self, chap):
+    def __init__(self, chapter):
         super(Wizard, self).__init__()
-        if chap == 1:
+        if chapter == 1:
             self.image: pygame.Surface = self.wizard_images[0]
             self.idle_image = self.wizard_images
-        elif chap == 2:
+        elif chapter == 2:
             self.image: pygame.Surface = self.wizard_fire_images[0]
             self.idle_image = self.wizard_fire_images
-        elif chap == 3:
+        elif chapter == 3:
             self.image: pygame.Surface = self.wizard_ice_images[0]
             self.idle_image = self.wizard_ice_images
         self.rect: pygame.Rect = self.image.get_rect(center=(0, 350))
@@ -384,7 +385,7 @@ class CommandZone:
     def text_guide(self, screen, number):
         text = ''
         if number == 0:
-            text = "Welcome to this new adventure. We will ask you a few question before we start"
+            text = " Welcome to this new adventure."
         elif number == 1:
             text = "Do you want to have sound for each hit? (Yes/No)"
         return screen.blit(self.font_italic.render(text, True, GREEN), self.rect)
@@ -406,14 +407,39 @@ class CommandZone:
                 result = "Make sure you entered correctly only Yes or No?"
         return result
 
-    def exec_code(self):
+    def exec_microbit(self):
         line = ""
-        for i in range(self.order_lines+1):
+        for i in range(self.order_lines + 1):
             line += self.lines[i] + "\n"
         with open("exec_microbit.py", "w") as file:
             file.write(line)
 
-        os.system('uflash exec_microbit.py')
+        if not os.path.exists("/volumes/microbit"):
+            return "Make sure you have plugged in your Micro-bit"
+        try:
+            os.system('uflash exec_microbit.py')
+            import exec_microbit
+        except ImportError:
+            print("ok")
+        except:
+            return "False"
+        return "Correct"
+
+    def error_message(self, screen, answer):
+        if answer == "Correct":
+            color = GREEN
+        else:
+            color = RED
+        display_text = self.font_italic.render(answer, True, color)
+        rect = display_text.get_rect()
+        rect.bottomright = self.run_button.bottomleft
+
+        screen.blit(display_text, rect)
+
+    def exec_command(self):
+        line = ""
+        for i in range(self.order_lines + 1):
+            line += self.lines[i] + "\n"
 
 
 class Images(pygame.sprite.Sprite):
