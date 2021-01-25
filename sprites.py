@@ -3,6 +3,7 @@ import time
 import pygame
 from extracter import extract_images
 import os
+from main import handle_chapter
 
 SCREEN_WIDTH, SCREEN_HEIGHT = int(pygame.display.Info().current_w), int(pygame.display.Info().current_h)
 
@@ -19,13 +20,12 @@ PERCENT_OF_SCREEN_HEIGHT = 0.1296296296296296
 scale_factor = SCREEN_HEIGHT * PERCENT_OF_SCREEN_HEIGHT / 350
 
 
-
 class Player(pygame.sprite.Sprite):
-    animation_frame = 'idle'
-    IDLE_PATH = 'assets/sprites/knight/idle/*.png'
+
     RUN_PATH = "assets/sprites/knight/run/*.png"
     ATTACK_PATH = 'assets/sprites/knight/attack/*png'
 
+    animation_frame = 'idle'
     facing_right = True
     idle_index = 1
     running_index = 0
@@ -35,11 +35,6 @@ class Player(pygame.sprite.Sprite):
     change_animation = 2
 
     RUNNING_SPEED = round(SCREEN_WIDTH / 200)  # pixels / (1/60) seconds
-
-    idle_images = [[], []]  # left, right
-    for image in extract_images(IDLE_PATH, scale_factor):
-        idle_images[0].append(pygame.transform.flip(image, True, False))
-        idle_images[1].append(image)
 
     run_images = [[], []]  # left, right
     for image in extract_images(RUN_PATH, scale_factor):
@@ -51,12 +46,27 @@ class Player(pygame.sprite.Sprite):
         attack_images[0].append(pygame.transform.flip(image, True, False))
         attack_images[1].append(image)
 
-    def __init__(self, chapter=1):
+    def __init__(self, shield=False):
         super(Player, self).__init__()
+        self.shield = shield
+        self._idle_images = [[], []]
         self.image: pygame.Surface = self.idle_images[1][0]
         self.rect: pygame.Rect = self.image.get_rect(center=(0, 350))
         self.rect.left = 0.05 * SCREEN_WIDTH
         self.moving = True
+
+    @property
+    def idle_images(self):
+        if self.shield:
+            IDLE_PATH = 'assets/sprites/knight/idle_shield/*.png'
+        else:
+            IDLE_PATH = 'assets/sprites/knight/idle/*.png'
+
+        for image in extract_images(IDLE_PATH, scale_factor):
+            self._idle_images[0].append(pygame.transform.flip(image, True, False))
+            self._idle_images[1].append(image)
+
+        return self._idle_images
 
     def draw(self, screen):
         screen.blit(self.image, self.rect)
@@ -165,9 +175,10 @@ def get_image(images: list, index: int = None) -> pygame.image:
 
 
 class Enemy(pygame.sprite.Sprite):
-    idle_path = "assets/sprites/enemy{}/idle/*.png"
-    hurting_path = "assets/sprites/enemy/hurting/*.png"
-    dying_path = "assets/sprites/enemy/dying/*png"
+    chapter = handle_chapter()
+    idle_path = "assets/sprites/enemy_{}/idle/*.png".format(chapter)
+    hurting_path = "assets/sprites/enemy_{}/hurting/*.png".format(chapter)
+    dying_path = "assets/sprites/enemy_{}/dying/*png".format(chapter)
 
     change_animation = 2
     idle_index = 1
@@ -270,8 +281,8 @@ class Wizard(pygame.sprite.Sprite):
     idle_index = 1
 
     wizard_path = "assets/sprites/wizards/wizard/1_IDLE_00*.png"
-    wizard_fire_path = "assets/sprites/wizards/wizard_fire/1_IDLE_00*.png"
-    wizard_ice_path = "assets/sprites/wizards/wizard_ice/1_IDLE_00*.png"
+    wizard_fire_path = "assets/sprites/wizards/wizard-fire/1_IDLE_00*.png"
+    wizard_ice_path = "assets/sprites/wizards/wizard-ice/1_IDLE_00*.png"
 
     wizard_images = []  # Only right face
     for image in extract_images(wizard_path, scale_factor * 1.5):
@@ -314,13 +325,14 @@ class Wizard(pygame.sprite.Sprite):
 
 
 class CommandZone:
+    chapter = handle_chapter()
     inactive_color = (68, 87, 96)
     active_color = (57, 69, 76)
     font_reg = pygame.font.Font(CODE_REG, int(25 / 1200 * SCREEN_HEIGHT))
     font_italic = pygame.font.Font(CODE_REG, int(25 / 1000 * SCREEN_HEIGHT))
     font_height = int(25 / 1000 * SCREEN_HEIGHT)
 
-    def __init__(self, text=''):
+    def __init__(self):
         self.image = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT * 0.25))
         self.rect = (0, SCREEN_HEIGHT * 0.75)
         self.collide_rect = pygame.Rect(self.rect, (SCREEN_WIDTH, SCREEN_HEIGHT * 0.25))
@@ -334,10 +346,10 @@ class CommandZone:
         self.run_button = pygame.Rect((SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9),
                                       (0.12 * SCREEN_WIDTH, 0.05 * SCREEN_HEIGHT))
 
-    def draw(self, screen, chapter=0):
+    def draw(self, screen):
         self.image.fill(self.color)  # Draw Command Zone
         screen.blit(self.image, self.rect)  # Blit surface
-        self.text_guide(screen, chapter)
+        self.text_guide(screen)
         # Blit text line by line
         for i in range(self.order_lines + 1):
             height = SCREEN_HEIGHT * 0.75 + self.font_height * (i + 1) + 4
@@ -382,11 +394,11 @@ class CommandZone:
                 self.txt_surface = self.font_reg.render(self.text, True, WHITE)
                 self.cursor.topright = (self.txt_surface.get_rect().right + 50, height)
 
-    def text_guide(self, screen, number):
+    def text_guide(self, screen):
         text = ''
-        if number == 0:
-            text = " Welcome to this new adventure."
-        elif number == 1:
+        if self.chapter == 1:
+            text = " Welcome to this new adventure. Chapter 1, using 'import'"
+        elif self.chapter == 2:
             text = "Do you want to have sound for each hit? (Yes/No)"
         return screen.blit(self.font_italic.render(text, True, GREEN), self.rect)
 
@@ -408,6 +420,10 @@ class CommandZone:
         return result
 
     def exec_microbit(self):
+        """
+        Micro-bit challenge
+        :return: Result in string type
+        """
         line = ""
         for i in range(self.order_lines + 1):
             line += self.lines[i] + "\n"
@@ -437,9 +453,12 @@ class CommandZone:
         screen.blit(display_text, rect)
 
     def exec_command(self):
-        line = ""
-        for i in range(self.order_lines + 1):
-            line += self.lines[i] + "\n"
+        print(self.lines[0])
+        print(self.lines[1])
+        if self.lines[0] == 'from guard import shield':
+            if self.lines[1] == 'player.shield()':
+                return True
+        return False
 
 
 class Images(pygame.sprite.Sprite):

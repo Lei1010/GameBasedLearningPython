@@ -3,6 +3,7 @@ import os
 import platform
 import json
 import sys
+
 import pygame
 
 from pygame import gfxdraw, K_w, K_a, K_d, K_UP, K_LEFT, K_RIGHT, K_ESCAPE, K_F4, K_p, K_RALT, K_LALT, K_SPACE, \
@@ -282,10 +283,10 @@ def handle_chapter():
     else:
         chapter = floor(config["chapter"])
 
-    background = 'Assets/Images/background/background_{}.png'.format(str(chapter))
-    print(background)
+    print(chapter)
+    print(config['chapter'])
 
-    return chapter, background
+    return chapter
 
 
 def game():
@@ -293,7 +294,8 @@ def game():
     if not music_playing and config['background_music']:
         pygame.mixer.Channel(0).play(MUSIC_SOUND, loops=-1)
         music_playing = True
-    chapter, background = handle_chapter()
+    chapter = handle_chapter()
+    background = 'Assets/Images/background/background_{}.png'.format(str(chapter))
 
     running = True
     SCREEN.fill(BLACK)
@@ -327,6 +329,7 @@ def game():
                       click):
                 config["chapter"] = 1
                 save_config()
+                game()
         else:
             for event in pygame.event.get():
                 handle_input(event)
@@ -358,9 +361,13 @@ def game():
 
             if button("R U N", SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9, SCREEN_WIDTH * 0.12, SCREEN_HEIGHT * 0.05,
                       click):
-                # while not pygame.sprite.collide_rect(player, enemy):
-                # player.go_right()
-                pass
+                result = command_zone.exec_command()
+                print(result)
+                player.kill()
+                if result:
+                    player = Player(True)
+                else:
+                    player = Player()
 
             # if button("Guide", SCREEN_WIDTH * 0.9, SCREEN_HEIGHT * 0.78, 40, 12, click):
             #     pass
@@ -415,8 +422,27 @@ def game():
                     save_config()
                     game()
 
-            elif config["chapter"] == 2:
-                pass
+            elif config["chapter"] < 3:
+                if config["chapter"] == 2:
+                    if not enemy.killed:
+                        enemy.draw(SCREEN)
+                        if pygame.sprite.collide_rect(player, enemy):
+                            player.moving = False
+                            if player.animation_frame == 'attack':
+                                sign += 1
+                                if sign == 1:
+                                    enemy.count_hit += 1
+                                if sign == 13:
+                                    enemy.animation_frame = 'hurt'
+                            else:
+                                sign = 0
+                        else:
+                            player.moving = True
+                    else:
+                        enemy.kill()
+                        config["chapter"] += 0.1
+                        save_config()
+                        player.moving = True
             elif config["chapter"] == 3:
                 pass
 
@@ -429,6 +455,10 @@ def game():
 
 
 def challenge_1_1(command_zone):
+    """
+    Micro-bit challenge
+    Executive code in command_zone.exec_microbit() function
+    """
     background = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA, 32)
     background.fill(BLACK)
     SCREEN.blit(background, (0, 0))
@@ -496,8 +526,14 @@ def challenge_1_2():
             draw_button = False
 
         if round_button("S U B M I T", *button_layout_4[3], click):
+            print(ans_1, ans_2, ans_3)
             if ans_1 and ans_2 and (not ans_3):
+                display = True
+                display_text("Correct!", 600, 400, text_color=GREEN, blit_text=display)
+                pygame.time.wait(1000)
                 break
+            else:
+                pass
 
         first_run = False
         pygame.display.update()
@@ -516,7 +552,7 @@ def handle_input(event):
 
 
 def pause_menu_setup(background):
-    SCREEN.blit(background, (0, 0))
+    SCREEN.blit(background, (0,     0))
     background = SCREEN.copy()
     text_surf, text_rect = text_objects('Pause Menu', MENU_TEXT, color=WHITE)
     text_rect.center = ((SCREEN_WIDTH // 2), (SCREEN_HEIGHT // 4))
@@ -651,6 +687,7 @@ def display_trunks(wizard):
 def new_game():
     config['chapter'] = 0
     save_config()
+    game()
 
 
 if __name__ == '__main__':
