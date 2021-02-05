@@ -1,25 +1,21 @@
-class Alphabet:
-    def __init__(self, shield=False):
-        self.shield = shield
-        self._value = None
-        self.test = self.value[1]
+class test:
+    def __init__(self, value=False):
+        self.value = value
+        self._a = [[], []]
 
-        # getting the values
-
-    @property
-    def value(self):
-        if self.shield:
-            self._value = [1,2,3]
+    @cached_property
+    def a(self):
+        if self.value:
+            self._a[0].append(1)
         else:
-            self._value = [4,5,6]
-        return self._value
-        # setting the values
+            self._a[0].append(2)
+        return self._a
 
-    def ok(self):
-        print(self.value[1])
+    def try_test(self):
+        n = 3
+        for i in range(n):
+            print(len(self.a[0]))
 
 
-x = Alphabet(True)
-print(x.value)
-print(x.test)
-x.ok()
+new = test(False)
+new.try_test()

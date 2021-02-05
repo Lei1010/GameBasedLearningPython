@@ -1,3 +1,3 @@
-from microbit import *
-while True:
- display.show(Image.ASLEEP)
+from mricrobit import *
+while True: 
+ dssplay.show(Image.ASLEEP)

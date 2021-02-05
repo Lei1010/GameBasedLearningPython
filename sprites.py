@@ -3,7 +3,6 @@ import time
 import pygame
 from extracter import extract_images
 import os
-from main import handle_chapter
 
 SCREEN_WIDTH, SCREEN_HEIGHT = int(pygame.display.Info().current_w), int(pygame.display.Info().current_h)
 
@@ -21,10 +20,6 @@ scale_factor = SCREEN_HEIGHT * PERCENT_OF_SCREEN_HEIGHT / 350
 
 
 class Player(pygame.sprite.Sprite):
-
-    RUN_PATH = "assets/sprites/knight/run/*.png"
-    ATTACK_PATH = 'assets/sprites/knight/attack/*png'
-
     animation_frame = 'idle'
     facing_right = True
     idle_index = 1
@@ -34,39 +29,46 @@ class Player(pygame.sprite.Sprite):
     ANIMATION_SPEED = 4
     change_animation = 2
 
+    _idle_images = None
+    _run_images = None
+    _attack_images = None
+
     RUNNING_SPEED = round(SCREEN_WIDTH / 200)  # pixels / (1/60) seconds
 
-    run_images = [[], []]  # left, right
-    for image in extract_images(RUN_PATH, scale_factor):
-        run_images[0].append(pygame.transform.flip(image, True, False))
-        run_images[1].append(image)
-
-    attack_images = [[], []]
-    for image in extract_images(ATTACK_PATH, scale_factor):
-        attack_images[0].append(pygame.transform.flip(image, True, False))
-        attack_images[1].append(image)
-
-    def __init__(self, shield=False):
+    def __init__(self, shield=True, sword=True, position=0.05, center=(0, 350)):
         super(Player, self).__init__()
+        RUN_PATH = 'assets/sprites/knight/run_shield/*.png'
+        ATTACK_PATH = 'assets/sprites/knight/attack/*png'
         self.shield = shield
-        self._idle_images = [[], []]
-        self.image: pygame.Surface = self.idle_images[1][0]
-        self.rect: pygame.Rect = self.image.get_rect(center=(0, 350))
-        self.rect.left = 0.05 * SCREEN_WIDTH
-        self.moving = True
-
-    @property
-    def idle_images(self):
-        if self.shield:
-            IDLE_PATH = 'assets/sprites/knight/idle_shield/*.png'
+        self.sword = sword
+        if shield and sword:
+            IDLE_PATH = 'assets/sprites/knight/idle_full/*.png'
+        elif shield:
+            IDLE_PATH = 'assets/sprites/knight/idle_nosword/*.png'
+        elif sword:
+            IDLE_PATH = 'assets/sprites/knight/idle_noshield/*.png'
         else:
-            IDLE_PATH = 'assets/sprites/knight/idle/*.png'
+            IDLE_PATH = 'assets/sprites/knight/idle_raw/*.png'
 
+        self.idle_images = [[], []]
         for image in extract_images(IDLE_PATH, scale_factor):
-            self._idle_images[0].append(pygame.transform.flip(image, True, False))
-            self._idle_images[1].append(image)
+            self.idle_images[0].append(pygame.transform.flip(image, True, False))
+            self.idle_images[1].append(image)
 
-        return self._idle_images
+        self.run_images = [[], []]
+        for image in extract_images(RUN_PATH, scale_factor):
+            self.run_images[0].append(pygame.transform.flip(image, True, False))
+            self.run_images[1].append(image)
+
+        self.attack_images = [[], []]
+        for image in extract_images(ATTACK_PATH, scale_factor):
+            self.attack_images[0].append(pygame.transform.flip(image, True, False))
+            self.attack_images[1].append(image)
+
+        self.image: pygame.Surface = self.idle_images[1][0]
+        self.rect: pygame.Rect = self.image.get_rect(center=center)
+        self.rect.left = position * SCREEN_WIDTH
+        self.moving = True
 
     def draw(self, screen):
         screen.blit(self.image, self.rect)
@@ -112,10 +114,16 @@ class Player(pygame.sprite.Sprite):
             self.change_animation -= 1
 
     def update_attack(self):
+        """
+        Updates the attack animations
+        """
         if self.change_animation <= 0:
             self.image = self.get_image(self.attack_images, self.attack_index)
             self.attack_index += 2
+            print(self.attack_index)
+            print(len(self.attack_images[0]))
             if self.attack_index >= len(self.attack_images[0]):
+                print("done")
                 self.attack_index = 0
                 self.animation_frame = 'idle'
             self.reset_change_animation()
@@ -127,13 +135,12 @@ class Player(pygame.sprite.Sprite):
         self.speed[1] = 0
         self.rect.x += self.speed[0]
 
-        # if self.speed == [0, 0] and will_land and self.ON_GROUND:  # if standing still
         if self.animation_frame == 'attack':
             self.update_attack()
         elif self.speed == [0, 0]:  # if standing still
             self.update_idle()
             self.animation_frame = 'idle'
-        elif self.speed[0] != 0:  # animate only if running on the ground
+        elif self.speed[0] != 0:
             self.update_running()
             self.animation_frame = 'running'
         return self.rect
@@ -175,30 +182,28 @@ def get_image(images: list, index: int = None) -> pygame.image:
 
 
 class Enemy(pygame.sprite.Sprite):
-    chapter = handle_chapter()
-    idle_path = "assets/sprites/enemy_{}/idle/*.png".format(chapter)
-    hurting_path = "assets/sprites/enemy_{}/hurting/*.png".format(chapter)
-    dying_path = "assets/sprites/enemy_{}/dying/*png".format(chapter)
 
     change_animation = 2
     idle_index = 1
     animation_frame = 'idle'
 
-    idle_images = []
-    for image in extract_images(idle_path, scale_factor * 1.5):
-        idle_images.append(pygame.transform.flip(image, True, False))
-
-    hurting_images = []
-    for image in extract_images(hurting_path, scale_factor * 1.5):
-        hurting_images.append(pygame.transform.flip(image, True, False))
-
-    dying_images = []
-    for image in extract_images(dying_path, scale_factor * 1.5):
-        dying_images.append(pygame.transform.flip(image, True, False))
-
-    def __init__(self, chapter=1):
+    def __init__(self, chapter):
         super(Enemy, self).__init__()
-        self.chapter = chapter
+        self.idle_images = []
+        self.hurting_images = []
+        self.dying_images = []
+        self.idle_path = "assets/sprites/enemy_{}/idle/*.png".format(chapter)
+        self.hurting_path = "assets/sprites/enemy_{}/hurting/*.png".format(chapter)
+        self.dying_path = "assets/sprites/enemy_{}/dying/*.png".format(chapter)
+        for image in extract_images(self.idle_path, scale_factor * 1.5):
+            self.idle_images.append(pygame.transform.flip(image, True, False))
+
+        for image in extract_images(self.hurting_path, scale_factor * 1.5):
+            self.hurting_images.append(pygame.transform.flip(image, True, False))
+
+        for image in extract_images(self.dying_path, scale_factor * 1.5):
+            self.dying_images.append(pygame.transform.flip(image, True, False))
+
         self.image: pygame.Surface = self.idle_images[0]
         self.rect: pygame.Rect = self.image.get_rect(center=(0, 350))
         self.rect.left = 0.5 * SCREEN_WIDTH
@@ -259,18 +264,10 @@ class GameZone:
         self.background = pygame.transform.scale(self.background, (SCREEN_WIDTH, int(SCREEN_HEIGHT * 0.75)))
         self.rect = (0, 0)
         self.sprite_list = pygame.sprite.Group()
-        self.player = None
-        self.enemy = None
         self.collide_rect = pygame.Rect((0, 0), (SCREEN_WIDTH, SCREEN_HEIGHT * 0.75))
-
-    def set_player(self, player: Player, enemy: Enemy):
-        self.player = player
-        self.enemy = enemy
 
     def update(self, screen):
         screen.blit(self.background, self.rect)
-        self.player.update()
-        self.enemy.update()
 
     def draw(self, screen):
         self.sprite_list.draw(screen)
@@ -298,13 +295,13 @@ class Wizard(pygame.sprite.Sprite):
 
     def __init__(self, chapter):
         super(Wizard, self).__init__()
-        if chapter == 1:
+        if chapter == 2:
             self.image: pygame.Surface = self.wizard_images[0]
             self.idle_image = self.wizard_images
-        elif chapter == 2:
+        elif chapter == 3:
             self.image: pygame.Surface = self.wizard_fire_images[0]
             self.idle_image = self.wizard_fire_images
-        elif chapter == 3:
+        elif chapter == 4:
             self.image: pygame.Surface = self.wizard_ice_images[0]
             self.idle_image = self.wizard_ice_images
         self.rect: pygame.Rect = self.image.get_rect(center=(0, 350))
@@ -325,7 +322,6 @@ class Wizard(pygame.sprite.Sprite):
 
 
 class CommandZone:
-    chapter = handle_chapter()
     inactive_color = (68, 87, 96)
     active_color = (57, 69, 76)
     font_reg = pygame.font.Font(CODE_REG, int(25 / 1200 * SCREEN_HEIGHT))
@@ -349,7 +345,6 @@ class CommandZone:
     def draw(self, screen):
         self.image.fill(self.color)  # Draw Command Zone
         screen.blit(self.image, self.rect)  # Blit surface
-        self.text_guide(screen)
         # Blit text line by line
         for i in range(self.order_lines + 1):
             height = SCREEN_HEIGHT * 0.75 + self.font_height * (i + 1) + 4
@@ -394,18 +389,9 @@ class CommandZone:
                 self.txt_surface = self.font_reg.render(self.text, True, WHITE)
                 self.cursor.topright = (self.txt_surface.get_rect().right + 50, height)
 
-    def text_guide(self, screen):
-        text = ''
-        if self.chapter == 1:
-            text = " Welcome to this new adventure. Chapter 1, using 'import'"
-        elif self.chapter == 2:
-            text = "Do you want to have sound for each hit? (Yes/No)"
-        return screen.blit(self.font_italic.render(text, True, GREEN), self.rect)
-
     def verify_input(self, text, number):
         text = (" ".join(text.split()))
         result = ""
-        alert = ""
         if number == 1:
             if not result.lower():
                 alert = "It's not wrong to have a variable including upper case. However, it's not the regulation name." \
@@ -437,8 +423,7 @@ class CommandZone:
             import exec_microbit
         except ImportError:
             print("ok")
-        except:
-            return "False"
+
         return "Correct"
 
     def error_message(self, screen, answer):
@@ -453,20 +438,75 @@ class CommandZone:
         screen.blit(display_text, rect)
 
     def exec_command(self):
-        print(self.lines[0])
-        print(self.lines[1])
-        if self.lines[0] == 'from guard import shield':
-            if self.lines[1] == 'player.shield()':
-                return True
-        return False
+        shield = sword = False
+        try:
+            line_1 = self.lines[0].strip()
+        except IndexError:
+            line_1 = ""
+        try:
+            line_2 = self.lines[1].strip()
+        except IndexError:
+            line_2 = ""
+        try:
+            line_3 = self.lines[2].strip()
+        except IndexError:
+            line_3 = ""
+
+        if line_1 == 'from tool import shield':
+            if self.lines[1].strip() == 'player.shield()':
+                shield = True
+        elif line_1 == 'from tool import *':
+            if line_2 == 'player.shield()' or line_3 == 'player.shield()':
+                shield = True
+            if line_2 == 'player.sword()' or line_3 == 'player.sword()':
+                sword = True
+        elif line_1 == 'import tool':
+            if line_2 == 'player.tool.shield()' or line_3 == 'player.tool.shield()':
+                shield = True
+            if line_2 == 'player.tool.sword()' or line_3 == 'player.tool.sword()':
+                sword = True
+
+        return shield, sword
 
 
-class Images(pygame.sprite.Sprite):
+class Images:
     def __init__(self, source, center):
         super().__init__()
-        self.image = pygame.image.load(source)
+        self.image: pygame.Surface = pygame.image.load(source)
         self.rect = self.image.get_rect()
         self.rect.center = center
 
     def draw(self, screen):
         screen.blit(self.image, self.rect)
+
+
+class MovingSprite(pygame.sprite.Sprite):
+    change_animation = 2
+    idle_index = 1
+
+    def __init__(self, source, center, scale_factor=1):
+        super(MovingSprite, self).__init__()
+        self.idle_image = []
+        for image in extract_images(source, scale_factor):
+            self.idle_image.append(pygame.transform.flip(image, True, False))
+        self.image: pygame.Surface = self.idle_image[0]
+        self.rect = self.image.get_rect()
+        self.rect.center = center
+
+    def draw(self, screen):
+        screen.blit(self.image, self.rect)
+
+    def update(self):
+        if self.change_animation <= 0:
+            self.image = get_image(self.idle_image, self.idle_index)
+            self.idle_index += 1
+            if self.idle_index >= len(self.idle_image):
+                self.idle_index = 0
+            self.change_animation = 2
+        else:
+            self.change_animation -= 1
+
+
+
+
+
