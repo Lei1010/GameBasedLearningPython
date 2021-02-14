@@ -35,7 +35,7 @@ class Player(pygame.sprite.Sprite):
 
     RUNNING_SPEED = round(SCREEN_WIDTH / 200)  # pixels / (1/60) seconds
 
-    def __init__(self, shield=True, sword=True, position=0.05, center=(0, 350)):
+    def __init__(self, shield=True, sword=True, width=0.05, height=0.7):
         super(Player, self).__init__()
         RUN_PATH = 'assets/sprites/knight/run_shield/*.png'
         ATTACK_PATH = 'assets/sprites/knight/attack/*png'
@@ -66,8 +66,9 @@ class Player(pygame.sprite.Sprite):
             self.attack_images[1].append(image)
 
         self.image: pygame.Surface = self.idle_images[1][0]
-        self.rect: pygame.Rect = self.image.get_rect(center=center)
-        self.rect.left = position * SCREEN_WIDTH
+        self.rect: pygame.Rect = self.image.get_rect()
+        self.rect.bottom = height * SCREEN_HEIGHT
+        self.rect.left = width * SCREEN_WIDTH
         self.moving = True
 
     def draw(self, screen):
@@ -187,7 +188,7 @@ class Enemy(pygame.sprite.Sprite):
     idle_index = 1
     animation_frame = 'idle'
 
-    def __init__(self, chapter):
+    def __init__(self, chapter, height=0.7):
         super(Enemy, self).__init__()
         self.idle_images = []
         self.hurting_images = []
@@ -205,7 +206,8 @@ class Enemy(pygame.sprite.Sprite):
             self.dying_images.append(pygame.transform.flip(image, True, False))
 
         self.image: pygame.Surface = self.idle_images[0]
-        self.rect: pygame.Rect = self.image.get_rect(center=(0, 350))
+        self.rect: pygame.Rect = self.image.get_rect()
+        self.rect.bottom = height * SCREEN_HEIGHT
         self.rect.left = 0.5 * SCREEN_WIDTH
         self.count_hit = 0
         self.killed = False
@@ -304,7 +306,8 @@ class Wizard(pygame.sprite.Sprite):
         elif chapter == 4:
             self.image: pygame.Surface = self.wizard_ice_images[0]
             self.idle_image = self.wizard_ice_images
-        self.rect: pygame.Rect = self.image.get_rect(center=(0, 350))
+        self.rect: pygame.Rect = self.image.get_rect()
+        self.rect.bottom = 0.7 * SCREEN_HEIGHT
         self.rect.left = 0.8 * SCREEN_WIDTH
 
     def draw(self, screen):
@@ -345,14 +348,12 @@ class CommandZone:
     def draw(self, screen):
         self.image.fill(self.color)  # Draw Command Zone
         screen.blit(self.image, self.rect)  # Blit surface
-        # Blit text line by line
-        for i in range(self.order_lines + 1):
+
+        for i in range(self.order_lines+1):  # Blit text line by line
             height = SCREEN_HEIGHT * 0.75 + self.font_height * (i + 1) + 4
             self.txt_surface = self.font_reg.render(self.lines[i], True, WHITE)
             screen.blit(self.txt_surface, (50, height))  # Blit the text
-
-        # Draw blinking cursor
-        if time.time() % 1 > 0.5 and self.active:
+        if time.time() % 1 > 0.5 and self.active:  # Draw blinking cursor
             pygame.draw.rect(screen, WHITE, self.cursor)
 
     def handle_event(self, event):
@@ -389,22 +390,6 @@ class CommandZone:
                 self.txt_surface = self.font_reg.render(self.text, True, WHITE)
                 self.cursor.topright = (self.txt_surface.get_rect().right + 50, height)
 
-    def verify_input(self, text, number):
-        text = (" ".join(text.split()))
-        result = ""
-        if number == 1:
-            if not result.lower():
-                alert = "It's not wrong to have a variable including upper case. However, it's not the regulation name." \
-                        "From next chapter, let's consider variable including uppercase is wrong. Keep it mind that!"
-
-            if text == "no":
-                result = "Turn off hit sound successfully"
-            elif text == "yes":
-                result = "Turn on hit sound successfully"
-            else:
-                result = "Make sure you entered correctly only Yes or No?"
-        return result
-
     def exec_microbit(self):
         """
         Micro-bit challenge
@@ -436,6 +421,13 @@ class CommandZone:
         rect.bottomright = self.run_button.bottomleft
 
         screen.blit(display_text, rect)
+
+    def sample_code(self, chapter):
+        if chapter == 2:
+            self.lines[0] = "from skill import attack"
+            self.lines.append("moving = True")
+            self.lines.append("while moving:")
+            self.lines.append("   player.moving")
 
     def exec_command(self):
         shield = sword = False

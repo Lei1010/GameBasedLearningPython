@@ -287,7 +287,7 @@ def game():
         pygame.mixer.Channel(0).play(MUSIC_SOUND, loops=-1)
         music_playing = True
     if chapter == 1 or chapter == 0:
-        player = Player(False, False, position=0.4)
+        player = Player(False, False, width=0.4)
     else:
         player = Player()
     if chapter == 0:
@@ -299,6 +299,7 @@ def game():
     sign = 0
     running = True
     SCREEN.fill(BLACK)
+    first_run = True
     if chapter > 1:
         enemy = Enemy(initial_chapter)
         wizard = Wizard(initial_chapter)
@@ -336,12 +337,12 @@ def game():
         command_zone.draw(SCREEN)
         game_zone.update(SCREEN)
         player.draw(SCREEN)
-        player.update_idle()
+        player.update()
         if chapter == 1:
             if round_button("R U N", SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9, SCREEN_WIDTH * 0.12,
                             SCREEN_HEIGHT * 0.05, click):
                 shield, sword = command_zone.exec_command()
-                player = Player(shield, sword, position=0.4)
+                player = Player(shield, sword, width=0.4)
             if player.shield and player.sword and player.rect.left > SCREEN_WIDTH:
                 chapter = 2
                 game()
@@ -353,6 +354,10 @@ def game():
             if not enemy.killed:
                 enemy.draw(SCREEN)
                 enemy.update()
+                if first_run:
+                    command_zone.sample_code(2)
+                    first_run = False
+
                 if pygame.sprite.collide_rect(player, enemy):
                     player.moving = False
                     if player.animation_frame == 'attack':
@@ -450,8 +455,8 @@ def chapter_2_2(command_zone):
     Executive code in command_zone.exec_microbit() function
     """
     background = 'Assets/Images/background/background_2.2.png'
-    bat = Images('Assets/Images/bat/bat_final.png', (700, 160))
-    player = Player(position=0.1, center=(0, 270))
+    bat = Images('Assets/Images/bat/bat_final.png', (SCREEN_WIDTH*0.8, SCREEN_HEIGHT*0.2))
+    player = Player(width=0.2, height=0.55)
     game_zone = GameZone(background)
     answer = ""
     while True:
@@ -541,6 +546,7 @@ def chapter_2_3():
 
         first_run = False
         pygame.display.update()
+        clock.tick(60)
 
 
 def handle_input(event):
