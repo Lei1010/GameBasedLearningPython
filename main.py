@@ -284,19 +284,15 @@ def game():
     global chapter
 
     if not music_playing and config['background_music']:
-        pygame.mixer.Channel(0).play(MUSIC_SOUND, loops=-1)
+        # TODO: add music
+        # pygame.mixer.Channel(0).play(MUSIC_SOUND, loops=-1)
         music_playing = True
-    if chapter == 1 or chapter == 0:
-        player = Player(False, False, width=0.4)
-    else:
-        player = Player()
+    player = Player()
     if chapter == 0:
         chapter_0(player)
         chapter = 1
     initial_chapter = floor(chapter)
-    print(chapter)
     background = 'Assets/Images/background/background_{}.png'.format(str(chapter))
-    sign = 0
     running = True
     SCREEN.fill(BLACK)
     first_run = True
@@ -305,8 +301,6 @@ def game():
         wizard = Wizard(initial_chapter)
     game_zone = GameZone(background)
     command_zone = CommandZone()
-    guide = Images("Assets/Images/guide.png", (SCREEN_WIDTH * 0.95, SCREEN_HEIGHT * 0.78))
-    # guide_active = Images("Assets/Images/guide_active.png", (SCREEN_WIDTH*0.95, SCREEN_HEIGHT*0.78))
     while running:
         click = False
 
@@ -338,20 +332,15 @@ def game():
         game_zone.update(SCREEN)
         player.draw(SCREEN)
         player.update()
-        if chapter == 1:
-            if round_button("R U N", SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9, SCREEN_WIDTH * 0.12,
-                            SCREEN_HEIGHT * 0.05, click):
-                shield, sword = command_zone.exec_command()
-                player = Player(shield, sword, width=0.4)
-            if player.shield and player.sword and player.rect.left > SCREEN_WIDTH:
-                chapter = 2
-                game()
 
-        # if button("Guide", SCREEN_WIDTH * 0.9, SCREEN_HEIGHT * 0.78, 40, 12, click):
-        #     pass
+        if chapter == 1:
+            chapter_1(command_zone, game_zone)
 
         elif chapter == 2:
-            if not enemy.killed:
+            if not enemy.dead:
+                if round_button("R U N", SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9, SCREEN_WIDTH * 0.12,
+                                SCREEN_HEIGHT * 0.05, click):
+                    command_zone.exec_command()
                 enemy.draw(SCREEN)
                 enemy.update()
                 if first_run:
@@ -361,17 +350,12 @@ def game():
                 if pygame.sprite.collide_rect(player, enemy):
                     player.moving = False
                     if player.animation_frame == 'attack':
-                        sign += 1
-                        if sign == 1:
-                            enemy.count_hit += 1
-                            enemy.animation_frame = 'hurt'
-                    else:
-                        sign = 0
+                        enemy.count_hit += 1
+                        enemy.animation_frame = 'hurt'
+
                 else:
                     player.moving = True
             else:
-                enemy.kill()
-                # chapter = 2.1
                 player.moving = True
                 wizard.draw(SCREEN)
                 wizard.update()
@@ -421,10 +405,26 @@ def game():
 
         """Config here"""
         pygame.display.update()
-        clock.tick(30)
+        clock.tick(24)
 
 
 def chapter_0(player):
+    background = pygame.image.load("Assets/scroll_0/scroll48.jpg").convert()
+    pygame.transform.scale(background, (SCREEN_WIDTH, SCREEN_HEIGHT))
+    scroll_sound = pygame.mixer.Sound("Assets/Audio/scroll.ogg")
+
+    if config['background_music']:
+        pygame.mixer.Channel(0).play(scroll_sound, loops=-1)
+
+    # for i in range(1, 49):
+    #     source = "Assets/scroll_0/scroll_0{}.jpg".format(str(i))
+    #     background = pygame.image.load(source)
+    #     image = pygame.Surface.lo
+    #     pygame.transform.scale(background, (SCREEN_WIDTH, SCREEN_HEIGHT))
+    #     SCREEN.blit(background, (0, 0))
+    #     clock.tick(40)
+
+    SCREEN.blit(background, (0, 0))
     while True:
         click = False
         for event in pygame.event.get():
@@ -436,17 +436,120 @@ def chapter_0(player):
                     if pause_menu(player) == 'Main Menu':
                         return 'Main Menu'
                     if config['background_music']:
-                        pygame.mixer.Channel(0).unpause()
-                        game.music_playing = True
+                        pygame.mixer.Channel(0).play(scroll_sound, loops=-1)
+
             if event.type == MOUSEBUTTONDOWN:
                 click = True
 
-        SCREEN.blit(intro_image, (0, 0))
         if round_button(" N E X T", int(SCREEN_WIDTH * 0.85), int(SCREEN_HEIGHT * 0.9), int(BUTTON_WIDTH * 0.5),
                         int(BUTTON_HEIGHT * 0.5), click, inactive_color=BLACK, active_color=GREY):
             break
         pygame.display.update()
         clock.tick(24)
+
+
+def chapter_1(command_zone, game_zone):
+    success_sound = pygame.mixer.Sound('Assets/Audio/success.ogg')
+    ready_sound = pygame.mixer.Sound("Assets/Audio/ready.ogg")
+    if config['background_music']:
+        pygame.mixer.Channel(0).play(ready_sound, loops=-1)
+
+    player = Player(False, False, 0.2, 0.55, 1.5)
+    scroll_stage = 1
+    scroll = Images('Assets/Scroll_1/1.png', (SCREEN_WIDTH/1.4, SCREEN_HEIGHT/3))
+
+    next_img = Images('Assets/materials/next.png', (SCREEN_WIDTH/1.4 + scroll.rect.width*0.25,
+                                                    SCREEN_HEIGHT/3 + scroll.rect.height*0.2))
+
+    back_img = Images('Assets/materials/back.png', (SCREEN_WIDTH/1.4 + scroll.rect.width*0.25-next_img.rect.width,
+                                                    SCREEN_HEIGHT/3 + scroll.rect.height*0.2))
+
+    while True:
+        click = False
+        for event in pygame.event.get():
+            handle_input(event)
+            if event.type == MOUSEBUTTONDOWN:
+                click = True
+            command_zone.handle_event(event)
+            if event.type == KEYDOWN and not command_zone.active:
+                if event.key == K_ESCAPE or event.key == K_SPACE and not command_zone.active:
+                    pygame.mixer.Channel(0).pause()
+                    if pause_menu(player) == 'Main Menu':
+                        return 'Main Menu'
+                    if config['background_music']:
+                        pygame.mixer.Channel(0).play(ready_sound, loops=-1)
+
+            if next_img.is_clicked(event) and scroll_stage < 4:
+                scroll_stage += 1
+                scroll = Images('Assets/Scroll_1/{}.png'.format(str(scroll_stage)),
+                                (SCREEN_WIDTH / 1.4, SCREEN_HEIGHT / 3))
+            if back_img.is_clicked(event) and scroll_stage > 1:
+                scroll_stage -= 1
+                scroll = Images('Assets/Scroll_1/{}.png'.format(str(scroll_stage)),
+                                (SCREEN_WIDTH / 1.4, SCREEN_HEIGHT / 3))
+
+        command_zone.draw(SCREEN)
+        game_zone.update(SCREEN)
+        player.draw(SCREEN)
+        scroll.draw(SCREEN)
+        if scroll_stage < 4:
+            next_img.draw(SCREEN)
+        if scroll_stage > 1:
+            back_img.draw(SCREEN)
+
+        if round_button("R U N", SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9, SCREEN_WIDTH * 0.12,
+                        SCREEN_HEIGHT * 0.05, click):
+            shield, sword = command_zone.exec_command()
+            if shield or sword:
+                success_sound.play()
+            player = Player(shield, sword, 0.2, 0.55, 1.5)
+
+        if not player.shield and not player.sword:
+            player.update_idle()
+        else:
+            player.update()
+
+        if player.shield and player.sword and player.rect.left > SCREEN_WIDTH:
+            break
+
+        pygame.display.update()
+        clock.tick(30)
+
+
+def display_trunks(wizard):
+    trunk_1 = Images("Assets/Images/treasure/trunk_1a.png", (SCREEN_WIDTH / 8,
+                                                             SCREEN_HEIGHT / 2))
+
+    trunk_2 = Images("Assets/Images/treasure/trunk_1b.png", (SCREEN_WIDTH / 2.9,
+                                                             SCREEN_HEIGHT / 2))
+    trunk_3 = Images("Assets/Images/treasure/trunk_1c.png", (SCREEN_WIDTH / 1.8,
+                                                             SCREEN_HEIGHT / 2))
+    chose = False
+    background = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA, 32)
+    background.fill((*BLACK, 160))
+    SCREEN.blit(background, (0, 0))
+    challenge_1 = Images("Assets/Images/challenge/challenge_1.png", (SCREEN_WIDTH * 0.89,
+                                                                     SCREEN_HEIGHT * 0.32))
+
+    while not chose:
+        wizard.draw(SCREEN)
+        challenge_1.draw(SCREEN)
+        trunk_1.draw(SCREEN)
+        trunk_2.draw(SCREEN)
+        trunk_3.draw(SCREEN)
+        for event in pygame.event.get():
+            handle_input(event)
+            if event.type == MOUSEBUTTONDOWN:
+                x, y = event.pos
+                if trunk_1.rect.collidepoint(x, y):
+                    chose = 1
+                elif trunk_2.rect.collidepoint(x, y):
+                    chose = 2
+                elif trunk_3.rect.collidepoint(x, y):
+                    chose = 3
+        pygame.display.update()
+        clock.tick(60)
+    return chose
 
 
 def chapter_2_2(command_zone):
@@ -455,10 +558,11 @@ def chapter_2_2(command_zone):
     Executive code in command_zone.exec_microbit() function
     """
     background = 'Assets/Images/background/background_2.2.png'
-    bat = Images('Assets/Images/bat/bat_final.png', (SCREEN_WIDTH*0.8, SCREEN_HEIGHT*0.2))
     player = Player(width=0.2, height=0.55)
+    enemy = MovingSprite("Assets/Sprites/Flaming_demon", 0.7, 0.5, 1.7)
     game_zone = GameZone(background)
     answer = ""
+
     while True:
         click = False
         for event in pygame.event.get():
@@ -476,19 +580,19 @@ def chapter_2_2(command_zone):
         player.update_idle()
         command_zone.draw(SCREEN)
         if answer != "Correct":
-            bat.draw(SCREEN)
-            if button("R U N", SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9, SCREEN_WIDTH * 0.12, SCREEN_HEIGHT * 0.05,
-                      click):
+            enemy.draw(SCREEN)
+            enemy.update_idle()
+            if round_button("R U N", SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9, SCREEN_WIDTH * 0.12,
+                            SCREEN_HEIGHT * 0.05,
+                            click):
                 answer = command_zone.exec_microbit()
             command_zone.error_message(SCREEN, answer)
-        else:
-            # bat.killed(SCREEN)
-            command_zone.error_message(SCREEN, answer)
-            if button("N E X T", SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9, SCREEN_WIDTH * 0.12, SCREEN_HEIGHT * 0.05,
-                      click):
-                break
+        elif not enemy.dead:
+            enemy.draw(SCREEN)
+            enemy.update_dying()
+
         pygame.display.update()
-        clock.tick(30)
+        clock.tick(24)
 
 
 def chapter_2_3():
@@ -657,42 +761,6 @@ def end_game():
         clock.tick(60)
 
 
-def display_trunks(wizard):
-    trunk_1 = Images("Assets/Images/treasure/trunk_1a.png", (SCREEN_WIDTH / 8,
-                                                             SCREEN_HEIGHT / 2))
-
-    trunk_2 = Images("Assets/Images/treasure/trunk_1b.png", (SCREEN_WIDTH / 2.9,
-                                                             SCREEN_HEIGHT / 2))
-    trunk_3 = Images("Assets/Images/treasure/trunk_1c.png", (SCREEN_WIDTH / 1.8,
-                                                             SCREEN_HEIGHT / 2))
-    chose = False
-    background = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA, 32)
-    background.fill((*BLACK, 160))
-    SCREEN.blit(background, (0, 0))
-    challenge_1 = Images("Assets/Images/challenge/challenge_1.png", (SCREEN_WIDTH * 0.89,
-                                                                     SCREEN_HEIGHT * 0.32))
-
-    while not chose:
-        wizard.draw(SCREEN)
-        challenge_1.draw(SCREEN)
-        trunk_1.draw(SCREEN)
-        trunk_2.draw(SCREEN)
-        trunk_3.draw(SCREEN)
-        for event in pygame.event.get():
-            handle_input(event)
-            if event.type == MOUSEBUTTONDOWN:
-                x, y = event.pos
-                if trunk_1.rect.collidepoint(x, y):
-                    chose = 1
-                elif trunk_2.rect.collidepoint(x, y):
-                    chose = 2
-                elif trunk_3.rect.collidepoint(x, y):
-                    chose = 3
-        pygame.display.update()
-        clock.tick(60)
-    return chose
-
-
 def new_game():
     global chapter
     chapter = 0
@@ -707,18 +775,14 @@ if __name__ == '__main__':
         windll.user32.SetProcessDPIAware()
     os.environ['SDL_VIDEO_CENTERED'] = '1'  # center display
     pygame.mixer.init(frequency=44100, buffer=512)
-    MUSIC_SOUND = pygame.mixer.Sound('assets/audio/background_music.ogg')
     SELECT_SOUND = pygame.mixer.Sound('assets/audio/select.ogg')
     FOOTSTEP_SOUND = pygame.mixer.Sound('assets/audio/footstep_grass.ogg')
-    intro_image = pygame.image.load("assets/images/background/dark_forest.jpg")
-    intro_sword = pygame.image.load("assets/images/background/intro_sword.png")
 
     chapter = config['chapter']
     music_playing = False
     pygame.init()
     SCREEN_WIDTH, SCREEN_HEIGHT = int(0.75 * pygame.display.Info().current_w), \
                                   int(0.75 * pygame.display.Info().current_h)
-    intro_image = pygame.transform.scale(intro_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
     SCREEN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     BUTTON_WIDTH = int(SCREEN_WIDTH * 0.625 // 3)
     BUTTON_HEIGHT = int(SCREEN_HEIGHT * 5 // 81)

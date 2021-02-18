@@ -35,7 +35,7 @@ class Player(pygame.sprite.Sprite):
 
     RUNNING_SPEED = round(SCREEN_WIDTH / 200)  # pixels / (1/60) seconds
 
-    def __init__(self, shield=True, sword=True, width=0.05, height=0.7):
+    def __init__(self, shield=True, sword=True, width=0.05, height=0.7, scale=1):
         super(Player, self).__init__()
         RUN_PATH = 'assets/sprites/knight/run_shield/*.png'
         ATTACK_PATH = 'assets/sprites/knight/attack/*png'
@@ -51,17 +51,17 @@ class Player(pygame.sprite.Sprite):
             IDLE_PATH = 'assets/sprites/knight/idle_raw/*.png'
 
         self.idle_images = [[], []]
-        for image in extract_images(IDLE_PATH, scale_factor):
+        for image in extract_images(IDLE_PATH, scale_factor * scale):
             self.idle_images[0].append(pygame.transform.flip(image, True, False))
             self.idle_images[1].append(image)
 
         self.run_images = [[], []]
-        for image in extract_images(RUN_PATH, scale_factor):
+        for image in extract_images(RUN_PATH, scale_factor * scale):
             self.run_images[0].append(pygame.transform.flip(image, True, False))
             self.run_images[1].append(image)
 
         self.attack_images = [[], []]
-        for image in extract_images(ATTACK_PATH, scale_factor):
+        for image in extract_images(ATTACK_PATH, scale_factor * scale):
             self.attack_images[0].append(pygame.transform.flip(image, True, False))
             self.attack_images[1].append(image)
 
@@ -183,12 +183,13 @@ def get_image(images: list, index: int = None) -> pygame.image:
 
 
 class Enemy(pygame.sprite.Sprite):
-
     change_animation = 2
     idle_index = 1
+    hurt_index = 5
+    dying_index = 0
     animation_frame = 'idle'
 
-    def __init__(self, chapter, height=0.7):
+    def __init__(self, chapter, width=0.5, height=0.7, scale=1.5):
         super(Enemy, self).__init__()
         self.idle_images = []
         self.hurting_images = []
@@ -196,21 +197,21 @@ class Enemy(pygame.sprite.Sprite):
         self.idle_path = "assets/sprites/enemy_{}/idle/*.png".format(chapter)
         self.hurting_path = "assets/sprites/enemy_{}/hurting/*.png".format(chapter)
         self.dying_path = "assets/sprites/enemy_{}/dying/*.png".format(chapter)
-        for image in extract_images(self.idle_path, scale_factor * 1.5):
+        for image in extract_images(self.idle_path, scale_factor * scale):
             self.idle_images.append(pygame.transform.flip(image, True, False))
 
-        for image in extract_images(self.hurting_path, scale_factor * 1.5):
+        for image in extract_images(self.hurting_path, scale_factor * scale):
             self.hurting_images.append(pygame.transform.flip(image, True, False))
 
-        for image in extract_images(self.dying_path, scale_factor * 1.5):
+        for image in extract_images(self.dying_path, scale_factor * scale):
             self.dying_images.append(pygame.transform.flip(image, True, False))
 
         self.image: pygame.Surface = self.idle_images[0]
         self.rect: pygame.Rect = self.image.get_rect()
         self.rect.bottom = height * SCREEN_HEIGHT
-        self.rect.left = 0.5 * SCREEN_WIDTH
+        self.rect.left = width * SCREEN_WIDTH
         self.count_hit = 0
-        self.killed = False
+        self.dead = False
 
     def draw(self, screen):
         screen.blit(self.image, self.rect)
@@ -227,10 +228,10 @@ class Enemy(pygame.sprite.Sprite):
 
     def update_hurt(self):
         if self.change_animation <= 0:
-            self.image = get_image(self.hurting_images, self.idle_index)
-            self.idle_index += 2
-            if self.idle_index >= len(self.hurting_images):
-                self.idle_index = 0
+            self.image = get_image(self.hurting_images, self.hurt_index)
+            self.hurt_index += 1
+            if self.hurt_index >= len(self.hurting_images):
+                self.hurt_index = 4
                 self.animation_frame = 'idle'
             self.change_animation = 2
         else:
@@ -238,17 +239,16 @@ class Enemy(pygame.sprite.Sprite):
 
     def update_dying(self):
         if self.change_animation <= 0:
-            self.image = get_image(self.dying_images, self.idle_index)
-            self.idle_index += 2
-            if self.idle_index >= len(self.dying_images):
-                self.idle_index = 0
-                self.killed = True
+            self.image = get_image(self.dying_images, self.dying_index)
+            self.dying_index += 1
+            if self.dying_index >= len(self.dying_images):
+                self.dead = True
             self.change_animation = 2
         else:
             self.change_animation -= 2
 
     def update(self, seconds_passed=1 / 60):
-        if self.count_hit == 4:
+        if self.count_hit >= 4:
             self.update_dying()
         elif self.animation_frame == 'hurt':
             self.update_hurt()
@@ -270,9 +270,6 @@ class GameZone:
 
     def update(self, screen):
         screen.blit(self.background, self.rect)
-
-    def draw(self, screen):
-        self.sprite_list.draw(screen)
 
 
 class Wizard(pygame.sprite.Sprite):
@@ -349,7 +346,7 @@ class CommandZone:
         self.image.fill(self.color)  # Draw Command Zone
         screen.blit(self.image, self.rect)  # Blit surface
 
-        for i in range(self.order_lines+1):  # Blit text line by line
+        for i in range(self.order_lines + 1):  # Blit text line by line
             height = SCREEN_HEIGHT * 0.75 + self.font_height * (i + 1) + 4
             self.txt_surface = self.font_reg.render(self.lines[i], True, WHITE)
             screen.blit(self.txt_surface, (50, height))  # Blit the text
@@ -462,33 +459,49 @@ class CommandZone:
 
 
 class Images:
-    def __init__(self, source, center):
+    def __init__(self, source, center, scale=None):
         super().__init__()
         self.image: pygame.Surface = pygame.image.load(source)
+        if scale is not None:
+            pygame.transform.scale(self.image, scale)
         self.rect = self.image.get_rect()
         self.rect.center = center
 
     def draw(self, screen):
         screen.blit(self.image, self.rect)
+
+    def is_clicked(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            x, y = event.pos
+            if self.rect.collidepoint(x, y):
+                return True
+        return False
+
 
 
 class MovingSprite(pygame.sprite.Sprite):
     change_animation = 2
     idle_index = 1
+    dying_index = 0
 
-    def __init__(self, source, center, scale_factor=1):
+    def __init__(self, source, width, height, scale=1):
         super(MovingSprite, self).__init__()
         self.idle_image = []
-        for image in extract_images(source, scale_factor):
+        self.dying_image = []
+        for image in extract_images(source + "/idle/*", scale_factor * scale):
             self.idle_image.append(pygame.transform.flip(image, True, False))
+        for image in extract_images(source + "/dying/*", scale_factor * scale):
+            self.dying_image.append(pygame.transform.flip(image, True, False))
         self.image: pygame.Surface = self.idle_image[0]
         self.rect = self.image.get_rect()
-        self.rect.center = center
+        self.rect.left = width * SCREEN_WIDTH
+        self.rect.bottom = height * SCREEN_HEIGHT
+        self.dead = False
 
     def draw(self, screen):
         screen.blit(self.image, self.rect)
 
-    def update(self):
+    def update_idle(self):
         if self.change_animation <= 0:
             self.image = get_image(self.idle_image, self.idle_index)
             self.idle_index += 1
@@ -498,7 +511,13 @@ class MovingSprite(pygame.sprite.Sprite):
         else:
             self.change_animation -= 1
 
-
-
-
-
+    def update_dying(self):
+        print(self.dying_index)
+        if self.change_animation <= 0:
+            self.image = get_image(self.dying_image, self.dying_index)
+            self.dying_index += 1
+            if self.dying_index >= len(self.dying_image):
+                self.dead = True
+            self.change_animation = 2
+        else:
+            self.change_animation -= 1
