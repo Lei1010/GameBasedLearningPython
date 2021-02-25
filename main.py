@@ -21,10 +21,13 @@ LIGHT_BLUE = 0, 191, 255
 GREY = 204, 204, 204
 BLUE = 33, 150, 243
 BACKGROUND = 174, 222, 203
+PRIMARY = 156, 152, 37
+PRIMARY_LIGHT = 232, 227, 79
 
 FONT_BOLD = 'assets/fonts/OpenSans-SemiBold.ttf'
 FONT_REG = 'assets/fonts/OpenSans-Regular.ttf'
 FONT_LIGHT = 'assets/fonts/OpenSans-Light.ttf'
+FONT_SCROLL = 'Assets/Fonts/yuweij.ttf'
 
 CONFIG_FILE = 'config.json'
 config = {'DEBUG': False, 'background_music': True, "chapter": 0, }
@@ -69,7 +72,7 @@ def create_hud_text(text, color):
     return bg, text_rect
 
 
-def button(text, x, y, w, h, click, inactive_color=BLUE, active_color=LIGHT_BLUE, text_color=WHITE):
+def button(text, x, y, w, h, click, inactive_color=PRIMARY, active_color=PRIMARY_LIGHT, text_color=WHITE):
     mouse = pygame.mouse.get_pos()
     return_value = False
     if x < mouse[0] < x + w and y < mouse[1] < y + h:  # if mouse is hovering the button
@@ -154,19 +157,19 @@ def check_button(text, x, y, w, h, click, text_color=BLACK, enabled=True, draw_b
     if rect_height % 2 == 0:
         rect_height += 1
     if enabled and draw_btn:
-        draw_circle(SCREEN, int(x + TOGGLE_WIDTH), y + h // 4, h // 4, enabled_color)
+        draw_circle(SCREEN, int(x), y + h // 4, h // 4, enabled_color)
     elif draw_btn:
-        draw_circle(SCREEN, int(x + TOGGLE_WIDTH), y + h // 4, h // 4, disabled_color)
+        draw_circle(SCREEN, int(x), y + h // 4, h // 4, disabled_color)
 
     if blit_text:
         text_surf, text_rect = text_objects(text, MEDIUM_TEXT, color=text_color)
-        text_rect.topleft = (x, y)
+        text_rect.topleft = (x + h, y)
         SCREEN.blit(text_surf, text_rect)
 
     return x < mouse[0] < x + w and y < mouse[1] < y + h and click and pygame.time.get_ticks() > 100
 
 
-def display_text(text, x, y, text_color=BLACK, blit_text=True):
+def display_text(text, x, y, text_color=BLACK, blit_text=True, font=None):
     """
     Display text on Screen
     :param text: text need to display
@@ -174,8 +177,10 @@ def display_text(text, x, y, text_color=BLACK, blit_text=True):
     :param blit_text: improve quality by running once
     :return: None
     """
+    if font is None:
+        font = MEDIUM_TEXT
     if blit_text:
-        text_surf, text_rect = text_objects(text, MEDIUM_TEXT, color=text_color)
+        text_surf, text_rect = text_objects(text, font, color=text_color)
         text_rect.topleft = (x, y)
         SCREEN.blit(text_surf, text_rect)
 
@@ -235,7 +240,7 @@ def main_menu():
                 settings_menu()
                 main_menu_setup()
             elif button('Q U I T  G A M E', *button_layout_4[3], click):
-                sys.exit()
+                quit()
 
         if start_game:
             while start_game:
@@ -283,24 +288,24 @@ def game():
     global music_playing
     global chapter
 
-    if not music_playing and config['background_music']:
-        # TODO: add music
-        # pygame.mixer.Channel(0).play(MUSIC_SOUND, loops=-1)
-        music_playing = True
     player = Player()
     if chapter == 0:
         chapter_0(player)
         chapter = 1
     initial_chapter = floor(chapter)
     background = 'Assets/Images/background/background_{}.png'.format(str(chapter))
-    running = True
     SCREEN.fill(BLACK)
-    first_run = True
-    if chapter > 1:
+
+    if chapter > 2:
         enemy = Enemy(initial_chapter)
         wizard = Wizard(initial_chapter)
+
     game_zone = GameZone(background)
     command_zone = CommandZone()
+
+    running = True
+    hurt_signal = True
+
     while running:
         click = False
 
@@ -314,9 +319,6 @@ def game():
                     music_playing = False
                     if pause_menu(player) == 'Main Menu':
                         return 'Main Menu'
-                    if config['background_music']:
-                        pygame.mixer.Channel(0).unpause()
-                        music_playing = True
                 if event.key == K_LEFT:
                     player.go_left()
                 elif event.key == K_RIGHT and player.moving:
@@ -328,30 +330,39 @@ def game():
                     player.stop(pygame.key.get_pressed())
             command_zone.handle_event(event)
 
-        command_zone.draw(SCREEN)
+        command_zone.update(SCREEN)
         game_zone.update(SCREEN)
         player.draw(SCREEN)
         player.update()
 
         if chapter == 1:
             chapter_1(command_zone, game_zone)
+            chapter = 2
+            game()
 
         elif chapter == 2:
+            chapter_2(command_zone, game_zone)
+            chapter = 3
+            game()
+            pass
+
+        elif chapter == 3:
             if not enemy.dead:
                 if round_button("R U N", SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9, SCREEN_WIDTH * 0.12,
                                 SCREEN_HEIGHT * 0.05, click):
                     command_zone.exec_command()
                 enemy.draw(SCREEN)
                 enemy.update()
-                if first_run:
-                    command_zone.sample_code(2)
-                    first_run = False
-
                 if pygame.sprite.collide_rect(player, enemy):
                     player.moving = False
                     if player.animation_frame == 'attack':
-                        enemy.count_hit += 1
-                        enemy.animation_frame = 'hurt'
+                        print(player.attack_index)
+                        if player.attack_index == 8 and hurt_signal:
+                            enemy.count_hit += 1
+                            enemy.animation_frame = 'hurt'
+                            hurt_signal = False
+                        if player.attack_index == 0:
+                            hurt_signal = True
 
                 else:
                     player.moving = True
@@ -363,68 +374,45 @@ def game():
                     player.moving = False
                     trunk_chosen = display_trunks(wizard)
                     if trunk_chosen == 1:
-                        chapter = 2.2
+                        chapter = 3.2
                         game()
                     elif trunk_chosen == 2:
-                        chapter = 2.3
-                    else:
-                        chapter = 2.4
-                    game()
-        elif chapter == 2.2:
-            chapter_2_2(command_zone)
-            chapter = 2
-            game()
-        elif chapter == 2.3:
-            chapter_2_3()
-            chapter = 2
-            game()
-
-        elif chapter == 3:
-            if not enemy.killed:
-                enemy.draw(SCREEN)
-                if pygame.sprite.collide_rect(player, enemy):
-                    player.moving = False
-                    if player.animation_frame == 'attack':
-                        sign += 1
-                        if sign == 1:
-                            enemy.count_hit += 1
-                        if sign == 13:
-                            enemy.animation_frame = 'hurt'
-                    else:
-                        sign = 0
-                else:
-                    player.moving = True
-            else:
-                enemy.kill()
-                chapter = 3.1
-                player.moving = True
-        elif chapter == 4:
-            pass
+                        chapter = 3.3
+                        game()
+        elif chapter == 3.2:
+            chapter_3_2(command_zone)
+            # chapter = 0
+            end_game()
+        elif chapter == 3.3:
+            chapter_3_3(background)
+            # chapter = 0
+            end_game()
 
         """Debug here"""
 
         """Config here"""
         pygame.display.update()
-        clock.tick(24)
+        clock.tick(40)
 
 
 def chapter_0(player):
-    background = pygame.image.load("Assets/scroll_0/scroll48.jpg").convert()
-    pygame.transform.scale(background, (SCREEN_WIDTH, SCREEN_HEIGHT))
     scroll_sound = pygame.mixer.Sound("Assets/Audio/scroll.ogg")
-
     if config['background_music']:
         pygame.mixer.Channel(0).play(scroll_sound, loops=-1)
+    image = []
+    index = 0
 
-    # for i in range(1, 49):
-    #     source = "Assets/scroll_0/scroll_0{}.jpg".format(str(i))
-    #     background = pygame.image.load(source)
-    #     image = pygame.Surface.lo
-    #     pygame.transform.scale(background, (SCREEN_WIDTH, SCREEN_HEIGHT))
-    #     SCREEN.blit(background, (0, 0))
-    #     clock.tick(40)
+    for i in range(1, 49):
+        source = 'Assets/scroll_0/scroll{}.jpg'.format(i)
+        image.append(pygame.image.load(source))
+        image[i-1] = pygame.transform.smoothscale(image[i-1], (SCREEN_WIDTH, SCREEN_HEIGHT))
 
-    SCREEN.blit(background, (0, 0))
+    while index < 47:
+        SCREEN.blit(image[index], (0, 0))
+        index += 1
+        pygame.display.update()
+        clock.tick(15)
+
     while True:
         click = False
         for event in pygame.event.get():
@@ -437,10 +425,10 @@ def chapter_0(player):
                         return 'Main Menu'
                     if config['background_music']:
                         pygame.mixer.Channel(0).play(scroll_sound, loops=-1)
-
             if event.type == MOUSEBUTTONDOWN:
                 click = True
 
+        SCREEN.blit(image[47], (0, 0))
         if round_button(" N E X T", int(SCREEN_WIDTH * 0.85), int(SCREEN_HEIGHT * 0.9), int(BUTTON_WIDTH * 0.5),
                         int(BUTTON_HEIGHT * 0.5), click, inactive_color=BLACK, active_color=GREY):
             break
@@ -449,6 +437,97 @@ def chapter_0(player):
 
 
 def chapter_1(command_zone, game_zone):
+    player = Player(False, False, 0.2, 0.55, 1.5)
+    badge = Images("Assets/badge.png", (SCREEN_WIDTH / 3, SCREEN_HEIGHT / 3), scale=SCREEN_WIDTH / (3 * 484))
+    scroll = Images("Assets/scroll_1.png", (SCREEN_WIDTH / 1.4, SCREEN_HEIGHT / 3), scale=SCREEN_WIDTH / (2.5 * 537))
+    command_zone.set_up_chapter1()
+    answer_1 = answer_2 = name = age = " "
+    text_1 = "Before you go, you will prepare a badge."
+    text_2 = "This badge represents you and your"
+    text_3 = "kingdom."
+    text_4 = "Type in your information as asked below "
+    text_5 = "to inscribe those onto your badge."
+    text_6 = "Think carefully!"
+    fire_sound = pygame.mixer.Sound("Assets/Audio/fire-sound.ogg")
+    fist_run = True
+    part = 1
+
+    if config['background_music']:
+        pygame.mixer.Channel(0).play(fire_sound, loops=-1)
+
+    while True:
+        click = False
+        for event in pygame.event.get():
+            handle_input(event)
+            if event.type == MOUSEBUTTONDOWN:
+                click = True
+            command_zone.handle_input_1(event, part)
+            if event.type == KEYDOWN and not command_zone.active:
+                if event.key == K_ESCAPE or event.key == K_SPACE and not command_zone.active:
+                    pygame.mixer.Channel(0).pause()
+                    if pause_menu(player) == 'Main Menu':
+                        return 'Main Menu'
+                    if config['background_music']:
+                        pygame.mixer.Channel(0).play(fire_sound, loops=-1)
+
+        game_zone.update(SCREEN)
+        command_zone.update(SCREEN)
+        badge.draw(SCREEN)
+        scroll.draw(SCREEN)
+        if answer_1 == "Correct":
+            if fist_run:
+                command_zone.set_up_chapter1_2()
+                part = 2
+                fist_run = False
+            txt_surf, txt_rect = text_objects(name, SCROLL_TEXT_LARGE)
+            display_text(name, SCREEN_WIDTH / 3 - txt_rect.width / 2, SCREEN_HEIGHT / 3 - scroll.rect.height * 0.05,
+                         text_color=WHITE, font=SCROLL_TEXT_LARGE)
+
+            if answer_2 == "Correct":
+                age_surf, age_rect = text_objects(age, SCROLL_TEXT_LARGE)
+                display_text(age, SCREEN_WIDTH / 3 - age_rect.width / 2, SCREEN_HEIGHT / 3,
+                             text_color=WHITE, font=SCROLL_TEXT_LARGE)
+                if round_button("L E A V E", SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9, SCREEN_WIDTH * 0.12,
+                                SCREEN_HEIGHT * 0.05, click):
+                    break
+            else:
+                if round_button("R U N", SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9, SCREEN_WIDTH * 0.12,
+                                SCREEN_HEIGHT * 0.05, click):
+                    answer_2, age = command_zone.exec_chapter1(2)
+                if answer_2 == "Not correct":
+                    command_zone.error_message(SCREEN, "Your age is an Integer type")
+
+        else:
+            if round_button("R U N", SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9, SCREEN_WIDTH * 0.12,
+                            SCREEN_HEIGHT * 0.05, click):
+                answer_1, name = command_zone.exec_chapter1(1)
+            if answer_1 == "Not correct":
+                command_zone.error_message(SCREEN, "First rule: Your name is a string so put it in \" \"")
+
+        display_text(text_1, SCREEN_WIDTH / 1.4 - 0.32 * scroll.rect.width,
+                     SCREEN_HEIGHT / 3 - scroll.rect.height * 0.26,
+                     text_color=WHITE, font=SCROLL_TEXT)
+        display_text(text_2, SCREEN_WIDTH / 1.4 - 0.32 * scroll.rect.width,
+                     SCREEN_HEIGHT / 3 - scroll.rect.height * 0.20,
+                     text_color=WHITE, font=SCROLL_TEXT)
+        display_text(text_3, SCREEN_WIDTH / 1.4 - 0.32 * scroll.rect.width,
+                     SCREEN_HEIGHT / 3 - scroll.rect.height * 0.14,
+                     text_color=WHITE, font=SCROLL_TEXT)
+        display_text(text_4, SCREEN_WIDTH / 1.4 - 0.32 * scroll.rect.width,
+                     SCREEN_HEIGHT / 3 - scroll.rect.height * 0.08,
+                     text_color=WHITE, font=SCROLL_TEXT)
+        display_text(text_5, SCREEN_WIDTH / 1.4 - 0.32 * scroll.rect.width,
+                     SCREEN_HEIGHT / 3 - scroll.rect.height * 0.02,
+                     text_color=WHITE, font=SCROLL_TEXT)
+        display_text(text_6, SCREEN_WIDTH / 1.4 - 0.32 * scroll.rect.width,
+                     SCREEN_HEIGHT / 3 + scroll.rect.height * 0.04,
+                     text_color=WHITE, font=SCROLL_TEXT)
+
+        pygame.display.update()
+        clock.tick(40)
+
+
+def chapter_2(command_zone, game_zone):
     success_sound = pygame.mixer.Sound('Assets/Audio/success.ogg')
     ready_sound = pygame.mixer.Sound("Assets/Audio/ready.ogg")
     if config['background_music']:
@@ -456,13 +535,13 @@ def chapter_1(command_zone, game_zone):
 
     player = Player(False, False, 0.2, 0.55, 1.5)
     scroll_stage = 1
-    scroll = Images('Assets/Scroll_1/1.png', (SCREEN_WIDTH/1.4, SCREEN_HEIGHT/3))
+    scroll = Images('Assets/Scroll_2/1.png', (SCREEN_WIDTH / 1.4, SCREEN_HEIGHT / 3))
 
-    next_img = Images('Assets/materials/next.png', (SCREEN_WIDTH/1.4 + scroll.rect.width*0.25,
-                                                    SCREEN_HEIGHT/3 + scroll.rect.height*0.2))
+    next_img = Images('Assets/materials/next.png', (SCREEN_WIDTH / 1.4 + scroll.rect.width * 0.25,
+                                                    SCREEN_HEIGHT / 3 + scroll.rect.height * 0.2))
 
-    back_img = Images('Assets/materials/back.png', (SCREEN_WIDTH/1.4 + scroll.rect.width*0.25-next_img.rect.width,
-                                                    SCREEN_HEIGHT/3 + scroll.rect.height*0.2))
+    back_img = Images('Assets/materials/back.png', (SCREEN_WIDTH / 1.4 + scroll.rect.width * 0.25 - next_img.rect.width,
+                                                    SCREEN_HEIGHT / 3 + scroll.rect.height * 0.2))
 
     while True:
         click = False
@@ -478,52 +557,61 @@ def chapter_1(command_zone, game_zone):
                         return 'Main Menu'
                     if config['background_music']:
                         pygame.mixer.Channel(0).play(ready_sound, loops=-1)
+                    if event.key == K_LEFT:
+                        player.go_left()
+                    elif event.key == K_RIGHT:
+                        player.go_right()
+                elif event.type == KEYUP:
+                    if event.key in (K_d, K_RIGHT, K_a, K_LEFT, K_RETURN):
+                        player.stop(pygame.key.get_pressed())
 
             if next_img.is_clicked(event) and scroll_stage < 4:
                 scroll_stage += 1
-                scroll = Images('Assets/Scroll_1/{}.png'.format(str(scroll_stage)),
+                scroll = Images('Assets/Scroll_2/{}.png'.format(str(scroll_stage)),
                                 (SCREEN_WIDTH / 1.4, SCREEN_HEIGHT / 3))
             if back_img.is_clicked(event) and scroll_stage > 1:
                 scroll_stage -= 1
-                scroll = Images('Assets/Scroll_1/{}.png'.format(str(scroll_stage)),
+                scroll = Images('Assets/Scroll_2/{}.png'.format(str(scroll_stage)),
                                 (SCREEN_WIDTH / 1.4, SCREEN_HEIGHT / 3))
 
-        command_zone.draw(SCREEN)
+        command_zone.update(SCREEN)
         game_zone.update(SCREEN)
         player.draw(SCREEN)
-        scroll.draw(SCREEN)
-        if scroll_stage < 4:
-            next_img.draw(SCREEN)
-        if scroll_stage > 1:
-            back_img.draw(SCREEN)
 
-        if round_button("R U N", SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9, SCREEN_WIDTH * 0.12,
-                        SCREEN_HEIGHT * 0.05, click):
-            shield, sword = command_zone.exec_command()
-            if shield or sword:
-                success_sound.play()
-            player = Player(shield, sword, 0.2, 0.55, 1.5)
-
-        if not player.shield and not player.sword:
+        if not player.shield or not player.sword:
             player.update_idle()
+            scroll.draw(SCREEN)
+            if scroll_stage < 4:
+                next_img.draw(SCREEN)
+            if scroll_stage > 1:
+                back_img.draw(SCREEN)
+            if round_button("R U N", SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9, SCREEN_WIDTH * 0.12,
+                            SCREEN_HEIGHT * 0.05, click):
+                shield, sword = command_zone.exec_command()
+                if shield or sword:
+                    success_sound.play()
+                player = Player(shield, sword, 0.2, 0.55, 1.5)
         else:
             player.update()
+            if round_button("L E A V E", SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9, SCREEN_WIDTH * 0.12,
+                            SCREEN_HEIGHT * 0.05, click):
+                break
 
         if player.shield and player.sword and player.rect.left > SCREEN_WIDTH:
             break
 
         pygame.display.update()
-        clock.tick(30)
+        clock.tick(40)
 
 
 def display_trunks(wizard):
-    trunk_1 = Images("Assets/Images/treasure/trunk_1a.png", (SCREEN_WIDTH / 8,
+    trunk_1 = Images("Assets/Images/treasure/trunk_1a.png", (SCREEN_WIDTH / 5,
                                                              SCREEN_HEIGHT / 2))
 
-    trunk_2 = Images("Assets/Images/treasure/trunk_1b.png", (SCREEN_WIDTH / 2.9,
+    trunk_2 = Images("Assets/Images/treasure/trunk_1b.png", (SCREEN_WIDTH / 2,
                                                              SCREEN_HEIGHT / 2))
-    trunk_3 = Images("Assets/Images/treasure/trunk_1c.png", (SCREEN_WIDTH / 1.8,
-                                                             SCREEN_HEIGHT / 2))
+    # trunk_3 = Images("Assets/Images/treasure/trunk_1c.png", (SCREEN_WIDTH / 1.8,
+    #                                                          SCREEN_HEIGHT / 2))
     chose = False
     background = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA, 32)
     background.fill((*BLACK, 160))
@@ -536,7 +624,6 @@ def display_trunks(wizard):
         challenge_1.draw(SCREEN)
         trunk_1.draw(SCREEN)
         trunk_2.draw(SCREEN)
-        trunk_3.draw(SCREEN)
         for event in pygame.event.get():
             handle_input(event)
             if event.type == MOUSEBUTTONDOWN:
@@ -545,19 +632,17 @@ def display_trunks(wizard):
                     chose = 1
                 elif trunk_2.rect.collidepoint(x, y):
                     chose = 2
-                elif trunk_3.rect.collidepoint(x, y):
-                    chose = 3
         pygame.display.update()
         clock.tick(60)
     return chose
 
 
-def chapter_2_2(command_zone):
+def chapter_3_2(command_zone):
     """
     Micro-bit challenge
     Executive code in command_zone.exec_microbit() function
     """
-    background = 'Assets/Images/background/background_2.2.png'
+    background = 'Assets/Images/background/background_3.2.png'
     player = Player(width=0.2, height=0.55)
     enemy = MovingSprite("Assets/Sprites/Flaming_demon", 0.7, 0.5, 1.7)
     game_zone = GameZone(background)
@@ -578,7 +663,7 @@ def chapter_2_2(command_zone):
         game_zone.update(SCREEN)
         player.draw(SCREEN)
         player.update_idle()
-        command_zone.draw(SCREEN)
+        command_zone.update(SCREEN)
         if answer != "Correct":
             enemy.draw(SCREEN)
             enemy.update_idle()
@@ -590,20 +675,24 @@ def chapter_2_2(command_zone):
         elif not enemy.dead:
             enemy.draw(SCREEN)
             enemy.update_dying()
+        else:
+            if round_button("L E A V E", SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9, SCREEN_WIDTH * 0.12,
+                            SCREEN_HEIGHT * 0.05, click):
+                break
 
         pygame.display.update()
         clock.tick(24)
 
 
-def chapter_2_3():
+def chapter_3_3(background):
     """
     Answer giving question
     Break while loop by either answering correctly or 2 times wrong
     :return: None
     """
-    background = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA, 32)
-    background.fill(WHITE)
-    SCREEN.blit(background, (0, 0))
+
+    img: pygame.Surface = pygame.image.load(background).convert()
+    SCREEN.blit(img, (0, 0))
     player = Player()
     chose = False
     ans_1 = ans_2 = ans_3 = False
@@ -615,38 +704,49 @@ def chapter_2_3():
             handle_input(event)
             if event.type == MOUSEBUTTONDOWN:
                 click = True
+            if event.type == KEYDOWN:
+                if event.key == K_ESCAPE or event.key == K_SPACE:
+                    pygame.mixer.Channel(0).pause()
+                    if pause_menu(player) == 'Main Menu':
+                        return 'Main Menu'
         player.draw(SCREEN)
-        display_text("What are the differences between 'While' and 'For'?", button_x_start, SCREEN_HEIGHT * 3.5 // 13,
-                     blit_text=first_run)
+        display_text("What does/do the character(s) that While loop and For loop have in common?",
+                     button_x_start, SCREEN_HEIGHT * 3.5 // 13,
+                     blit_text=first_run, text_color=WHITE)
         display_text("Check all the correct answers.", button_x_start, SCREEN_HEIGHT * 4 // 13,
-                     blit_text=first_run)
-        if check_button("What is it?", *button_layout_4[0], click, enabled=ans_1, draw_btn=draw_button,
-                        blit_text=first_run):
+                     blit_text=first_run, text_color=WHITE)
+        if check_button("Can use `break` statement inside the loop.", *button_layout_4[0], click, enabled=ans_1,
+                        draw_btn=draw_button, blit_text=first_run, text_color=WHITE):
             ans_1 = not ans_1
             draw_button = True
-        elif check_button("Why is it?", *button_layout_4[1], click, enabled=ans_2, draw_btn=draw_button,
-                          blit_text=first_run):
+        elif check_button("Must know the number of iterations", *button_layout_4[1], click, enabled=ans_2,
+                          draw_btn=draw_button,
+                          blit_text=first_run, text_color=WHITE):
             ans_2 = not ans_2
             draw_button = True
-        elif check_button("What is it?", *button_layout_4[2], click, enabled=ans_3, draw_btn=draw_button,
-                          blit_text=first_run):
+        elif check_button("Can use `continue` statement inside the loop.", *button_layout_4[2], click, enabled=ans_3,
+                          draw_btn=draw_button,
+                          blit_text=first_run, text_color=WHITE):
             ans_3 = not ans_3
             draw_button = True
         else:
             draw_button = False
 
         if round_button("S U B M I T", *button_layout_4[3], click):
-            print(ans_1, ans_2, ans_3)
-            if ans_1 and ans_2 and (not ans_3):
-                display = True
-                display_text("Correct!", 600, 400, text_color=GREEN, blit_text=display)
-                pygame.time.wait(1000)
+            if ans_1 and ans_3 and (not ans_2):
+                display_text("Correct!", button_x_start + BUTTON_WIDTH + 40,
+                             SCREEN_HEIGHT * 8 // 13 + BUTTON_HEIGHT // 2,
+                             text_color=GREEN)
                 break
             else:
                 wrong += 1
+                if wrong < 2:
+                    display_text("Wrong, 1 attempt left", button_x_start + BUTTON_WIDTH + 40,
+                                 SCREEN_HEIGHT * 8 // 13 + BUTTON_HEIGHT // 2, text_color=RED)
                 if wrong == 2:
-                    display = True
-                    display_text("You used your 2 attempts.", 600, 400, text_color=GREEN, blit_text=display)
+                    display_text("First answer and third answer were correct", button_x_start + BUTTON_WIDTH + 40,
+                                 SCREEN_HEIGHT * 8 // 13 + BUTTON_HEIGHT // 2, text_color=RED)
+                    break
 
         first_run = False
         pygame.display.update()
@@ -709,35 +809,24 @@ def pause_menu(player):
                     player.stop(pygame.key.get_pressed())
         if button('R E S U M E', *button_layout_4[0], click):
             return 'Resume'
-        elif button('N E W G A M E', *button_layout_4[1], click):
+        elif button('N E W  G A M E', *button_layout_4[1], click):
             new_game()
             game()
         elif button('S E T T I N G S', *button_layout_4[2], click):
             settings_menu()
             pause_menu_setup(background)
         elif button('Q U I T  G A M E', *button_layout_4[3], click):
-            sys.exit()
+            quit()
         pygame.display.update(button_layout_4)
         clock.tick(60)
     return 'Resume'
 
 
-def end_game_setup(surface_copy=None):
-    if surface_copy is not None:
-        SCREEN.blit(surface_copy, (0, 0))
-    else:
-        background = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA, 32)
-        background.fill((255, 255, 255, 160))
-        SCREEN.blit(background, (0, 0))
-        text_surf, text_rect = text_objects('Game Over', MENU_TEXT)
-        text_rect.center = ((SCREEN_WIDTH // 2), (SCREEN_HEIGHT // 4))
-        SCREEN.blit(text_surf, text_rect)
-        surface_copy = pygame.display.get_surface().copy()
-    pygame.display.update()
-    return surface_copy
-
-
 def end_game():
+    global chapter
+    background = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA, 32)
+    background.fill((*BLACK, 160))
+    SCREEN.blit(background, (0, 0))
     show_mouse()
     button_layout_3 = [(button_x_start, SCREEN_HEIGHT * 6 // 13, BUTTON_WIDTH, BUTTON_HEIGHT),
                        (button_x_start, SCREEN_HEIGHT * 7 // 13, BUTTON_WIDTH, BUTTON_HEIGHT),
@@ -747,18 +836,25 @@ def end_game():
         for event in pygame.event.get():
             handle_input(event)
             if event.type == KEYDOWN and (event.key == K_ESCAPE or event.key == K_m):
-                return 'Main Menu'
+                quit()
             elif event.type == KEYDOWN and (event.key == K_SPACE or event.key == K_r):
                 return 'Restart'
             elif event.type == MOUSEBUTTONDOWN:
-                click = True
+                chapter = 0
+                game()
         if button('R E S T A R T', *button_layout_3[0], click):
-            return 'Restart'
-        elif button('M A I N  M E N U', *button_layout_3[1], click):
-            main_menu()
-            return 'Main Menu'
-        pygame.display.update(button_layout_3)
+            chapter = 0
+            game()
+        elif button('Q U I T  G A M E', *button_layout_3[1], click):
+            quit()
+        pygame.display.update()
         clock.tick(60)
+
+
+def quit():
+    config["chapter"] = chapter
+    save_config()
+    sys.exit()
 
 
 def new_game():
@@ -799,6 +895,8 @@ if __name__ == '__main__':
     MEDIUM_TEXT = pygame.font.Font(FONT_LIGHT, int(35 / 1440 * SCREEN_HEIGHT))
     SMALL_TEXT = pygame.font.Font(FONT_BOLD, int(25 / 1440 * SCREEN_HEIGHT))
     HUD_TEXT = pygame.font.Font(FONT_REG, int(40 / 1440 * SCREEN_HEIGHT))
+    SCROLL_TEXT = pygame.font.Font(FONT_SCROLL, int(35 / 1440 * SCREEN_HEIGHT))
+    SCROLL_TEXT_LARGE = pygame.font.Font(FONT_SCROLL, int(45 / 1440 * SCREEN_HEIGHT))
 
     # # Load Icon
     # ICON = 'assets/sprites/adventurer_idle.png'

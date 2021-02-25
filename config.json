@@ -1,5 +1,5 @@
 {
     "DEBUG": false,
-    "background_music": true,
-    "chapter": 0
+    "background_music": false,
+    "chapter": 1
 }

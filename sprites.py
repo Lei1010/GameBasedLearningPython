@@ -1,7 +1,7 @@
 import time
 
 import pygame
-from extracter import extract_images
+from extracter import extract_images, scale_image
 import os
 
 SCREEN_WIDTH, SCREEN_HEIGHT = int(pygame.display.Info().current_w), int(pygame.display.Info().current_h)
@@ -107,7 +107,7 @@ class Player(pygame.sprite.Sprite):
         """
         if self.change_animation <= 0:
             self.image = self.get_image(self.run_images, self.running_index)
-            self.running_index += 1
+            self.running_index += 2
             if self.running_index >= len(self.run_images[0]):
                 self.running_index = 0
             self.reset_change_animation()
@@ -121,15 +121,12 @@ class Player(pygame.sprite.Sprite):
         if self.change_animation <= 0:
             self.image = self.get_image(self.attack_images, self.attack_index)
             self.attack_index += 2
-            print(self.attack_index)
-            print(len(self.attack_images[0]))
             if self.attack_index >= len(self.attack_images[0]):
-                print("done")
                 self.attack_index = 0
                 self.animation_frame = 'idle'
             self.reset_change_animation()
         else:
-            self.change_animation -= 2
+            self.change_animation -= 1
 
     def update(self, seconds_passed=1 / 60):
         self.rect.y += self.speed[1]
@@ -231,21 +228,17 @@ class Enemy(pygame.sprite.Sprite):
             self.image = get_image(self.hurting_images, self.hurt_index)
             self.hurt_index += 1
             if self.hurt_index >= len(self.hurting_images):
-                self.hurt_index = 4
+                self.hurt_index = 5
                 self.animation_frame = 'idle'
             self.change_animation = 2
         else:
             self.change_animation -= 1
 
     def update_dying(self):
-        if self.change_animation <= 0:
-            self.image = get_image(self.dying_images, self.dying_index)
-            self.dying_index += 1
-            if self.dying_index >= len(self.dying_images):
-                self.dead = True
-            self.change_animation = 2
-        else:
-            self.change_animation -= 2
+        self.image = get_image(self.dying_images, self.dying_index)
+        self.dying_index += 1
+        if self.dying_index >= len(self.dying_images):
+            self.dead = True
 
     def update(self, seconds_passed=1 / 60):
         if self.count_hit >= 4:
@@ -278,7 +271,6 @@ class Wizard(pygame.sprite.Sprite):
 
     wizard_path = "assets/sprites/wizards/wizard/1_IDLE_00*.png"
     wizard_fire_path = "assets/sprites/wizards/wizard-fire/1_IDLE_00*.png"
-    wizard_ice_path = "assets/sprites/wizards/wizard-ice/1_IDLE_00*.png"
 
     wizard_images = []  # Only right face
     for image in extract_images(wizard_path, scale_factor * 1.5):
@@ -288,21 +280,14 @@ class Wizard(pygame.sprite.Sprite):
     for image in extract_images(wizard_fire_path, scale_factor * 1.5):
         wizard_fire_images.append(pygame.transform.flip(image, True, False))
 
-    wizard_ice_images = []
-    for image in extract_images(wizard_ice_path, scale_factor * 1.5):
-        wizard_fire_images.append(pygame.transform.flip(image, True, False))
-
     def __init__(self, chapter):
         super(Wizard, self).__init__()
-        if chapter == 2:
+        if chapter == 3:
             self.image: pygame.Surface = self.wizard_images[0]
             self.idle_image = self.wizard_images
-        elif chapter == 3:
+        elif chapter == 4:
             self.image: pygame.Surface = self.wizard_fire_images[0]
             self.idle_image = self.wizard_fire_images
-        elif chapter == 4:
-            self.image: pygame.Surface = self.wizard_ice_images[0]
-            self.idle_image = self.wizard_ice_images
         self.rect: pygame.Rect = self.image.get_rect()
         self.rect.bottom = 0.7 * SCREEN_HEIGHT
         self.rect.left = 0.8 * SCREEN_WIDTH
@@ -337,21 +322,27 @@ class CommandZone:
         self.text = ''
         self.txt_surface = self.font_reg.render(self.text, True, WHITE)
         self.lines = [self.text]
-        self.order_lines = 0
+        self.order_line = 0
         self.cursor = pygame.Rect(self.txt_surface.get_rect().topright, (1, self.font_height))
         self.run_button = pygame.Rect((SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9),
                                       (0.12 * SCREEN_WIDTH, 0.05 * SCREEN_HEIGHT))
 
     def draw(self, screen):
-        self.image.fill(self.color)  # Draw Command Zone
-        screen.blit(self.image, self.rect)  # Blit surface
+        self.image.fill(self.color)
+        screen.blit(self.image, self.rect)
 
-        for i in range(self.order_lines + 1):  # Blit text line by line
-            height = SCREEN_HEIGHT * 0.75 + self.font_height * (i + 1) + 4
+    def draw_text(self, screen):
+        for i in range(self.order_line + 1):
+            height = SCREEN_HEIGHT * 0.75 + self.font_height * i + 4
             self.txt_surface = self.font_reg.render(self.lines[i], True, WHITE)
-            screen.blit(self.txt_surface, (50, height))  # Blit the text
-        if time.time() % 1 > 0.5 and self.active:  # Draw blinking cursor
+            screen.blit(self.txt_surface, (50, height))
+
+        if time.time() % 1 > 0.5 and self.active:
             pygame.draw.rect(screen, WHITE, self.cursor)
+
+    def update(self, screen):
+        self.draw(screen)
+        self.draw_text(screen)
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -364,28 +355,27 @@ class CommandZone:
                 self.color = self.inactive_color
 
         # Take user input
-        if event.type == pygame.KEYDOWN:
-            if self.active:
-                if event.key == pygame.K_RETURN:
-                    self.order_lines += 1
-                    self.text = ''
-                    self.lines.append(self.text)
-                elif event.key == pygame.K_BACKSPACE:
-                    if self.text:
-                        self.text = self.text[:-1]
-                    elif self.order_lines != 0:
-                        self.lines.pop(self.order_lines)
-                        self.order_lines -= 1
-                        self.text = self.lines[self.order_lines]
-                        self.text = self.text[:-1]
-                else:
-                    self.text += event.unicode
-                # Re-render the text.
-                self.lines[self.order_lines] = self.text
-                # Identify location to render blinking cursor
-                height = SCREEN_HEIGHT * 0.75 + self.font_height * (self.order_lines + 1) + 4
-                self.txt_surface = self.font_reg.render(self.text, True, WHITE)
-                self.cursor.topright = (self.txt_surface.get_rect().right + 50, height)
+        if event.type == pygame.KEYDOWN and self.active:
+            if event.key == pygame.K_RETURN:
+                self.order_line += 1
+                self.text = ''
+                self.lines.append(self.text)
+            elif event.key == pygame.K_BACKSPACE:
+                if self.text:
+                    self.text = self.text[:-1]
+                elif self.order_line != 0:
+                    self.lines.pop(self.order_line)
+                    self.order_line -= 1
+                    self.text = self.lines[self.order_line]
+                    self.text = self.text[:-1]
+            else:
+                self.text += event.unicode
+            # Re-render the text.
+            self.lines[self.order_line] = self.text
+            # Identify location to render blinking cursor
+            height = SCREEN_HEIGHT * 0.75 + self.font_height * self.order_line + 4
+            self.txt_surface = self.font_reg.render(self.text, True, WHITE)
+            self.cursor.topright = (self.txt_surface.get_rect().right + 50, height)
 
     def exec_microbit(self):
         """
@@ -393,18 +383,16 @@ class CommandZone:
         :return: Result in string type
         """
         line = ""
-        for i in range(self.order_lines + 1):
+        for i in range(self.order_line + 1):
             line += self.lines[i] + "\n"
         with open("exec_microbit.py", "w") as file:
             file.write(line)
 
         if not os.path.exists("/volumes/microbit"):
             return "Make sure you have plugged in your Micro-bit"
-        try:
-            os.system('uflash exec_microbit.py')
-            import exec_microbit
-        except ImportError:
-            print("ok")
+
+        os.system('uflash exec_microbit.py')
+
 
         return "Correct"
 
@@ -415,16 +403,10 @@ class CommandZone:
             color = RED
         display_text = self.font_italic.render(answer, True, color)
         rect = display_text.get_rect()
-        rect.bottomright = self.run_button.bottomleft
+        rect.bottom = self.run_button.bottom
+        rect.right = self.run_button.left - 20
 
         screen.blit(display_text, rect)
-
-    def sample_code(self, chapter):
-        if chapter == 2:
-            self.lines[0] = "from skill import attack"
-            self.lines.append("moving = True")
-            self.lines.append("while moving:")
-            self.lines.append("   player.moving")
 
     def exec_command(self):
         shield = sword = False
@@ -444,26 +426,83 @@ class CommandZone:
         if line_1 == 'from tool import shield':
             if self.lines[1].strip() == 'player.shield()':
                 shield = True
+        elif line_1 == 'from tool import sword':
+            if self.lines[1].strip() == 'player.sword()':
+                sword = Trủủe
         elif line_1 == 'from tool import *':
-            if line_2 == 'player.shield()' or line_3 == 'player.shield()':
+            if line_2 == 'shield()' or line_3 == 'shield()':
                 shield = True
-            if line_2 == 'player.sword()' or line_3 == 'player.sword()':
+            if line_2 == 'sword()' or line_3 == 'sword()':
                 sword = True
         elif line_1 == 'import tool':
-            if line_2 == 'player.tool.shield()' or line_3 == 'player.tool.shield()':
+            if line_2 == 'tool.shield()' or line_3 == 'tool.shield()':
                 shield = True
-            if line_2 == 'player.tool.sword()' or line_3 == 'player.tool.sword()':
+            if line_2 == 'tool.sword()' or line_3 == 'tool.sword()':
                 sword = True
 
         return shield, sword
 
+    def exec_chapter1(self, part):
+        answer = self.text.strip()
+        if part == 1:
+            length = len(answer)
+            if answer[0] != "\"" or answer[length - 1] != "\"":
+
+                return "Not correct", None
+            else:
+                answer = answer[1:(length - 1)]
+                return "Correct", answer
+        else:
+            try:
+                answer = int(answer)
+                return "Correct", str(answer)
+            except ValueError:
+                return "Not correct", None
+
+    def set_up_chapter1(self):
+        self.order_line = 1
+        self.lines.pop(0)
+        self.lines.append("What is your name?")
+        self.lines.append("my_name = ")
+
+    def set_up_chapter1_2(self):
+        self.lines[0] = "How old are you?"
+        self.lines[1] = "my_age = "
+        self.text = ""
+
+    def handle_input_1(self, event, part):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if self.collide_rect.collidepoint(event.pos):
+                self.active = not self.active
+                self.color = self.active_color
+            else:
+                self.active = False
+                self.color = self.inactive_color
+
+        if event.type == pygame.KEYDOWN and self.active:
+            if event.key == pygame.K_BACKSPACE:
+                if self.text:
+                    self.text = self.text[:-1]
+            else:
+                self.text += event.unicode
+
+            # Re-render the text.
+            if part == 1:
+                self.lines[self.order_line] = "my_name = " + self.text
+            else:
+                self.lines[self.order_line] = "my_age = " + self.text
+
+            # Identify location to render blinking cursor
+            height = SCREEN_HEIGHT * 0.75 + self.font_height * self.order_line + 4
+            self.txt_surface = self.font_reg.render(self.lines[self.order_line], True, WHITE)
+            self.cursor.topright = (self.txt_surface.get_rect().right + 50, height)
+
 
 class Images:
-    def __init__(self, source, center, scale=None):
+    def __init__(self, source, center, scale=1):
         super().__init__()
-        self.image: pygame.Surface = pygame.image.load(source)
-        if scale is not None:
-            pygame.transform.scale(self.image, scale)
+        img = pygame.image.load(source)
+        self.image: pygame.Surface = scale_image(img, scale)
         self.rect = self.image.get_rect()
         self.rect.center = center
 
@@ -476,7 +515,6 @@ class Images:
             if self.rect.collidepoint(x, y):
                 return True
         return False
-
 
 
 class MovingSprite(pygame.sprite.Sprite):
@@ -512,7 +550,6 @@ class MovingSprite(pygame.sprite.Sprite):
             self.change_animation -= 1
 
     def update_dying(self):
-        print(self.dying_index)
         if self.change_animation <= 0:
             self.image = get_image(self.dying_image, self.dying_index)
             self.dying_index += 1
