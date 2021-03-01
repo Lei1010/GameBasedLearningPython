@@ -393,7 +393,6 @@ class CommandZone:
 
         os.system('uflash exec_microbit.py')
 
-
         return "Correct"
 
     def error_message(self, screen, answer):
@@ -469,6 +468,9 @@ class CommandZone:
         self.lines[0] = "How old are you?"
         self.lines[1] = "my_age = "
         self.text = ""
+        height = SCREEN_HEIGHT * 0.75 + self.font_height * self.order_line + 4
+        self.txt_surface = self.font_reg.render(self.lines[1], True, WHITE)
+        self.cursor.topright = (self.txt_surface.get_rect().right + 50, height)
 
     def handle_input_1(self, event, part):
         if event.type == pygame.MOUSEBUTTONDOWN:

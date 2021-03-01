@@ -166,7 +166,7 @@ def check_button(text, x, y, w, h, click, text_color=BLACK, enabled=True, draw_b
         text_rect.topleft = (x + h, y)
         SCREEN.blit(text_surf, text_rect)
 
-    return x < mouse[0] < x + w and y < mouse[1] < y + h and click and pygame.time.get_ticks() > 100
+    return x - h // 4 < mouse[0] < x + h // 4 and y < mouse[1] < y + h // 2 and click and pygame.time.get_ticks() > 100
 
 
 def display_text(text, x, y, text_color=BLACK, blit_text=True, font=None):
@@ -405,7 +405,7 @@ def chapter_0(player):
     for i in range(1, 49):
         source = 'Assets/scroll_0/scroll{}.jpg'.format(i)
         image.append(pygame.image.load(source))
-        image[i-1] = pygame.transform.smoothscale(image[i-1], (SCREEN_WIDTH, SCREEN_HEIGHT))
+        image[i - 1] = pygame.transform.smoothscale(image[i - 1], (SCREEN_WIDTH, SCREEN_HEIGHT))
 
     while index < 47:
         SCREEN.blit(image[index], (0, 0))
@@ -691,7 +691,8 @@ def chapter_3_3(background):
     :return: None
     """
 
-    img: pygame.Surface = pygame.image.load(background).convert()
+    img: pygame.Surface = pygame.transform.smoothscale(pygame.image.load(background).convert(),
+                                                       (SCREEN_WIDTH, SCREEN_HEIGHT))
     SCREEN.blit(img, (0, 0))
     player = Player()
     chose = False
@@ -750,7 +751,7 @@ def chapter_3_3(background):
 
         first_run = False
         pygame.display.update()
-        clock.tick(60)
+        clock.tick(40)
 
 
 def handle_input(event):
