@@ -1,3 +1,3 @@
 from microbit import *
-while True: 
- display.show(Image.HAPPY)
+while True:
+ display.show(Image.ASLEEP)

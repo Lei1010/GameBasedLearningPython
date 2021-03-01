@@ -31,7 +31,6 @@ FONT_SCROLL = 'Assets/Fonts/yuweij.ttf'
 
 CONFIG_FILE = 'config.json'
 config = {'DEBUG': False, 'background_music': True, "chapter": 0, }
-music_playing = False
 delta_time = 0
 
 
@@ -251,6 +250,7 @@ def main_menu():
 
 
 def settings_menu():
+    global music_playing
     SCREEN.fill(WHITE)
     text_surf, text_rect = text_objects('Settings', MENU_TEXT)
     text_rect.center = ((SCREEN_WIDTH // 2), (SCREEN_HEIGHT // 4))
@@ -269,10 +269,9 @@ def settings_menu():
                 return
             elif event.type == MOUSEBUTTONDOWN:
                 click = True
-        if toggle_btn('Background Music', *button_layout_4[0], click, enabled=config['background_music'],
+        if toggle_btn('Background Music', *button_layout_4[0], click, enabled=music_playing,
                       draw_toggle=draw_bg_toggle, blit_text=first_run):
-            config['background_music'] = not config['background_music']
-            save_config()
+            music_playing = not music_playing
             draw_bg_toggle = True
 
         elif button('B A C K', *button_layout_4[1], click):
@@ -304,9 +303,41 @@ def game():
     command_zone = CommandZone()
 
     running = True
-    hurt_signal = True
 
     while running:
+        if chapter == 1:
+            chapter_1(command_zone, game_zone)
+            chapter = 2
+            game()
+
+        elif chapter == 2:
+            chapter_2(command_zone, game_zone)
+            chapter = 3
+            game()
+
+        elif chapter == 3:
+            chapter_3(player, enemy, wizard, command_zone, game_zone)
+        elif chapter == 3.2:
+            chapter_3_2(command_zone)
+            chapter = 0
+            end_game()
+        elif chapter == 3.3:
+            chapter_3_3(background)
+            chapter = 0
+            end_game()
+
+        pygame.display.update()
+        clock.tick(40)
+
+
+def chapter_3(player, enemy, wizard, command_zone, game_zone):
+    global chapter
+    mysterious_sound = pygame.mixer.Sound("Assets/Audio/mysterious.mp3")
+    if music_playing:
+        pygame.mixer.Channel(0).play(mysterious_sound, loops=-1)
+
+    hurt_signal = True
+    while True:
         click = False
 
         for event in pygame.event.get():
@@ -316,9 +347,10 @@ def game():
             if event.type == KEYDOWN and not command_zone.active:
                 if event.key == K_ESCAPE or event.key == K_SPACE and not command_zone.active:
                     pygame.mixer.Channel(0).pause()
-                    music_playing = False
                     if pause_menu(player) == 'Main Menu':
                         return 'Main Menu'
+                    if music_playing:
+                        pygame.mixer.Channel(0).play(mysterious_sound, loops=-1)
                 if event.key == K_LEFT:
                     player.go_left()
                 elif event.key == K_RIGHT and player.moving:
@@ -334,70 +366,46 @@ def game():
         game_zone.update(SCREEN)
         player.draw(SCREEN)
         player.update()
+        if not enemy.dead:
+            if round_button("R U N", SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9, SCREEN_WIDTH * 0.12,
+                            SCREEN_HEIGHT * 0.05, click):
+                command_zone.exec_command()
+            enemy.draw(SCREEN)
+            enemy.update()
+            if pygame.sprite.collide_rect(player, enemy):
+                player.moving = False
+                if player.animation_frame == 'attack':
+                    print(player.attack_index)
+                    if player.attack_index == 8 and hurt_signal:
+                        enemy.count_hit += 1
+                        enemy.animation_frame = 'hurt'
+                        hurt_signal = False
+                    if player.attack_index == 0:
+                        hurt_signal = True
 
-        if chapter == 1:
-            chapter_1(command_zone, game_zone)
-            chapter = 2
-            game()
-
-        elif chapter == 2:
-            chapter_2(command_zone, game_zone)
-            chapter = 3
-            game()
-            pass
-
-        elif chapter == 3:
-            if not enemy.dead:
-                if round_button("R U N", SCREEN_WIDTH * 0.85, SCREEN_HEIGHT * 0.9, SCREEN_WIDTH * 0.12,
-                                SCREEN_HEIGHT * 0.05, click):
-                    command_zone.exec_command()
-                enemy.draw(SCREEN)
-                enemy.update()
-                if pygame.sprite.collide_rect(player, enemy):
-                    player.moving = False
-                    if player.animation_frame == 'attack':
-                        print(player.attack_index)
-                        if player.attack_index == 8 and hurt_signal:
-                            enemy.count_hit += 1
-                            enemy.animation_frame = 'hurt'
-                            hurt_signal = False
-                        if player.attack_index == 0:
-                            hurt_signal = True
-
-                else:
-                    player.moving = True
             else:
                 player.moving = True
-                wizard.draw(SCREEN)
-                wizard.update()
-                if pygame.sprite.collide_rect(player, wizard):
-                    player.moving = False
-                    trunk_chosen = display_trunks(wizard)
-                    if trunk_chosen == 1:
-                        chapter = 3.2
-                        game()
-                    elif trunk_chosen == 2:
-                        chapter = 3.3
-                        game()
-        elif chapter == 3.2:
-            chapter_3_2(command_zone)
-            # chapter = 0
-            end_game()
-        elif chapter == 3.3:
-            chapter_3_3(background)
-            # chapter = 0
-            end_game()
+        else:
+            player.moving = True
+            wizard.draw(SCREEN)
+            wizard.update()
+            if pygame.sprite.collide_rect(player, wizard):
+                player.moving = False
+                trunk_chosen = display_trunks(wizard)
+                if trunk_chosen == 1:
+                    chapter = 3.2
+                    game()
+                elif trunk_chosen == 2:
+                    chapter = 3.3
+                    game()
 
-        """Debug here"""
-
-        """Config here"""
         pygame.display.update()
         clock.tick(40)
 
 
 def chapter_0(player):
     scroll_sound = pygame.mixer.Sound("Assets/Audio/scroll.ogg")
-    if config['background_music']:
+    if music_playing:
         pygame.mixer.Channel(0).play(scroll_sound, loops=-1)
     image = []
     index = 0
@@ -423,7 +431,7 @@ def chapter_0(player):
                     game.music_playing = False
                     if pause_menu(player) == 'Main Menu':
                         return 'Main Menu'
-                    if config['background_music']:
+                    if music_playing:
                         pygame.mixer.Channel(0).play(scroll_sound, loops=-1)
             if event.type == MOUSEBUTTONDOWN:
                 click = True
@@ -452,7 +460,7 @@ def chapter_1(command_zone, game_zone):
     fist_run = True
     part = 1
 
-    if config['background_music']:
+    if music_playing:
         pygame.mixer.Channel(0).play(fire_sound, loops=-1)
 
     while True:
@@ -467,7 +475,7 @@ def chapter_1(command_zone, game_zone):
                     pygame.mixer.Channel(0).pause()
                     if pause_menu(player) == 'Main Menu':
                         return 'Main Menu'
-                    if config['background_music']:
+                    if music_playing:
                         pygame.mixer.Channel(0).play(fire_sound, loops=-1)
 
         game_zone.update(SCREEN)
@@ -530,7 +538,7 @@ def chapter_1(command_zone, game_zone):
 def chapter_2(command_zone, game_zone):
     success_sound = pygame.mixer.Sound('Assets/Audio/success.ogg')
     ready_sound = pygame.mixer.Sound("Assets/Audio/ready.ogg")
-    if config['background_music']:
+    if music_playing:
         pygame.mixer.Channel(0).play(ready_sound, loops=-1)
 
     player = Player(False, False, 0.2, 0.55, 1.5)
@@ -555,7 +563,7 @@ def chapter_2(command_zone, game_zone):
                     pygame.mixer.Channel(0).pause()
                     if pause_menu(player) == 'Main Menu':
                         return 'Main Menu'
-                    if config['background_music']:
+                    if music_playing:
                         pygame.mixer.Channel(0).play(ready_sound, loops=-1)
                     if event.key == K_LEFT:
                         player.go_left()
@@ -610,8 +618,6 @@ def display_trunks(wizard):
 
     trunk_2 = Images("Assets/Images/treasure/trunk_1b.png", (SCREEN_WIDTH / 2,
                                                              SCREEN_HEIGHT / 2))
-    # trunk_3 = Images("Assets/Images/treasure/trunk_1c.png", (SCREEN_WIDTH / 1.8,
-    #                                                          SCREEN_HEIGHT / 2))
     chose = False
     background = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA, 32)
     background.fill((*BLACK, 160))
@@ -642,6 +648,11 @@ def chapter_3_2(command_zone):
     Micro-bit challenge
     Executive code in command_zone.exec_microbit() function
     """
+
+    volcano_sound = pygame.mixer.Sound("Assets/Audio/volcano.mp3")
+    if music_playing:
+        pygame.mixer.Channel(0).play(volcano_sound, loops=-1)
+
     background = 'Assets/Images/background/background_3.2.png'
     player = Player(width=0.2, height=0.55)
     enemy = MovingSprite("Assets/Sprites/Flaming_demon", 0.7, 0.5, 1.7)
@@ -660,6 +671,8 @@ def chapter_3_2(command_zone):
                     pygame.mixer.Channel(0).pause()
                     if pause_menu(player) == 'Main Menu':
                         return 'Main Menu'
+                    if music_playing:
+                        pygame.mixer.Channel(0).play(volcano_sound, loops=-1)
         game_zone.update(SCREEN)
         player.draw(SCREEN)
         player.update_idle()
@@ -710,6 +723,7 @@ def chapter_3_3(background):
                     pygame.mixer.Channel(0).pause()
                     if pause_menu(player) == 'Main Menu':
                         return 'Main Menu'
+
         player.draw(SCREEN)
         display_text("What does/do the character(s) that While loop and For loop have in common?",
                      button_x_start, SCREEN_HEIGHT * 3.5 // 13,
@@ -763,10 +777,20 @@ def handle_input(event):
     alt_f4 = (event.type == KEYDOWN and event.key == K_F4
               and (pressed_keys[K_LALT] or pressed_keys[K_RALT]))
     if event.type == QUIT or alt_f4:
-        config['chapter'] = chapter
-        save_config()
-        sys.exit()
+        quit()
 
+
+def quit():
+    config["chapter"] = chapter
+    config["background_music"] = music_playing
+    save_config()
+    sys.exit()
+
+
+def new_game():
+    global chapter
+    chapter = 0
+    game()
 
 def pause_menu_setup(background):
     SCREEN.blit(background, (0, 0))
@@ -785,24 +809,17 @@ def pause_menu(player):
     background = pause_menu_setup(background)
     while paused:
         click = False
-        pks = pygame.key.get_pressed()
         for event in pygame.event.get():
             handle_input(event)
             if event.type == KEYDOWN:
-                right_key = event.key == K_RIGHT and not pks[K_d] or event.key == K_d and not pks[K_RIGHT]
-                left_key = event.key == K_LEFT and not pks[K_a] or event.key == K_a and not pks[K_LEFT]
-                if right_key:
-                    player.go_right()
-                elif left_key:
-                    player.go_left()
-                elif event.key in (pygame.K_ESCAPE, pygame.K_p):
+                if event.key in (pygame.K_ESCAPE, pygame.K_p):
                     paused = False
                 elif event.key == K_m:
                     return 'Main Menu'
                 elif event.key == K_SPACE:
                     return 'Resume'
                 elif event.key == K_q:
-                    sys.exit()
+                    quit()
             elif event.type == MOUSEBUTTONDOWN:
                 click = True
             elif event.type == KEYUP:
@@ -833,16 +850,11 @@ def end_game():
                        (button_x_start, SCREEN_HEIGHT * 7 // 13, BUTTON_WIDTH, BUTTON_HEIGHT),
                        (button_x_start, SCREEN_HEIGHT * 8 // 13, BUTTON_WIDTH, BUTTON_HEIGHT)]
     while True:
-        click, pressed_keys = False, pygame.key.get_pressed()
+        click = False
         for event in pygame.event.get():
             handle_input(event)
-            if event.type == KEYDOWN and (event.key == K_ESCAPE or event.key == K_m):
-                quit()
-            elif event.type == KEYDOWN and (event.key == K_SPACE or event.key == K_r):
-                return 'Restart'
-            elif event.type == MOUSEBUTTONDOWN:
-                chapter = 0
-                game()
+            if event.type == MOUSEBUTTONDOWN:
+                click = True
         if button('R E S T A R T', *button_layout_3[0], click):
             chapter = 0
             game()
@@ -850,18 +862,6 @@ def end_game():
             quit()
         pygame.display.update()
         clock.tick(60)
-
-
-def quit():
-    config["chapter"] = chapter
-    save_config()
-    sys.exit()
-
-
-def new_game():
-    global chapter
-    chapter = 0
-    game()
 
 
 if __name__ == '__main__':
@@ -875,8 +875,8 @@ if __name__ == '__main__':
     SELECT_SOUND = pygame.mixer.Sound('assets/audio/select.ogg')
     FOOTSTEP_SOUND = pygame.mixer.Sound('assets/audio/footstep_grass.ogg')
 
-    chapter = config['chapter']
-    music_playing = False
+    chapter = 3
+    music_playing = config["background_music"]
     pygame.init()
     SCREEN_WIDTH, SCREEN_HEIGHT = int(0.75 * pygame.display.Info().current_w), \
                                   int(0.75 * pygame.display.Info().current_h)
